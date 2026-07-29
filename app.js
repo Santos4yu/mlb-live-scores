@@ -6,6 +6,7 @@ let activeTab = 'game';
 let refreshTimer = null;
 let teamsCache = {};
 let lastPlayIndex = -1;
+let lastAnimatedPitchNum = 0;
 
 const TEAM_COLORS = {
     ARI:{c:'#A71930',id:109},ATL:{c:'#CE1141',id:144},BAL:{c:'#DF4601',id:110},
@@ -97,7 +98,7 @@ function showScores(){switchScreen('app-scores');}
 function switchScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='app-gamecenter'){clearInterval(refreshTimer);refreshTimer=null;}}
 
 async function openGameCenter(pk,away,home){
-    currentGamePk=pk;currentGame={away,home};lastPlayIndex=-1;switchScreen('app-gamecenter');
+    currentGamePk=pk;currentGame={away,home};lastPlayIndex=-1;lastAnimatedPitchNum=0;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
     renderGCTabs(away,home);await loadGameFeed();
     clearInterval(refreshTimer);refreshTimer=setInterval(loadGameFeed,3000);
@@ -186,7 +187,8 @@ function renderGameTab(data){
             const pcls=getPitchClass(p);
             const px=mapPitchMiniX(p.x), py=mapPitchMiniY(p.y);
             const isLatest=pi===pitches.filter(pp=>pp.x!=null&&pp.y!=null).length-1;
-            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-latest="${isLatest}" style="left:${isLatest?50:px}px;top:${isLatest?-10:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
+            if(isLatest)console.log('Pitch coords:',{rawX:p.x,rawY:p.y,mappedX:px,mappedY:py});
+            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-latest="${isLatest}" style="left:${isLatest?70:px}px;top:${isLatest?25:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
         }).join('');
         const pitchList=pitches.map((p,pi)=>{
             const pcls=getPitchClass(p);
@@ -268,8 +270,8 @@ function renderGameTab(data){
 
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
-function mapPitchMiniX(x){return Math.max(5,Math.min(135,((x-60)/130)*140));}
-function mapPitchMiniY(y){return Math.max(5,Math.min(165,((y-60)/200)*170));}
+function mapPitchMiniX(x){return Math.max(0,Math.min(140,((x-40)/170)*140));}
+function mapPitchMiniY(y){return Math.max(0,Math.min(170,((y-50)/220)*170));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
@@ -288,6 +290,9 @@ function getPitchBg(c){
 function animateLatestPitch(){
     const dot=document.querySelector('.mini-sz-dot[data-latest="true"]');
     if(!dot)return;
+    const pitchNum=parseInt(dot.textContent)||0;
+    if(pitchNum<=lastAnimatedPitchNum){dot.style.left=dot.dataset.x+'px';dot.style.top=dot.dataset.y+'px';dot.style.opacity='1';dot.removeAttribute('data-latest');return;}
+    lastAnimatedPitchNum=pitchNum;
     const targetX=parseFloat(dot.dataset.x),targetY=parseFloat(dot.dataset.y);
     const startX=50,startY=-10;
     const duration=500;
