@@ -131,7 +131,7 @@ function renderGCHeader(data){
     else if(isFinal)statusHtml=`<span class="gc-header-status" style="color:var(--text-muted)">Final</span>`;
     else statusHtml=`<span class="gc-header-status" style="color:var(--text-secondary)">${st?.detailedState||''}</span>`;
     document.getElementById('gcHeader').innerHTML=`
-        <div class="gc-header-top"><button class="gc-back-btn" onclick="closeGameCenter()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Back</button><div style="display:flex;align-items:center;gap:8px">${statusHtml}</div></div>
+        <div class="gc-header-top"><button class="gc-back-btn" onclick="closeGameCenter()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Back</button><div class="gc-header-status-center">${statusHtml}</div><div style="width:60px"></div></div>
         <div class="gc-header-teams">
             <div class="gc-team-header">${teamLogoImg(aw.abbr,aw.id,36)}<div class="team-info"><span class="team-abbr">${aw.abbr}</span><span class="team-name">${aw.name}</span></div></div>
             <span class="gc-header-score ${isFinal&&Number(awS)>=Number(hmS)?'winner':''}">${awS}</span><span class="gc-header-dash">-</span><span class="gc-header-score ${isFinal&&Number(hmS)>=Number(awS)?'winner':''}">${hmS}</span>

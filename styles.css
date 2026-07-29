@@ -484,6 +484,15 @@ body {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
+    position: relative;
+}
+.gc-header-status-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .gc-header-status {
     display: flex;
