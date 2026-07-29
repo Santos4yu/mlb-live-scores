@@ -198,7 +198,7 @@ function renderGameTab(data){
             const px=p.px!=null?mapPitchMiniX(p.px):mapPitchMiniX(((p.x||125)-80)/90*1.7-0.85);
             const py=p.pz!=null?mapPitchMiniY(p.pz):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
             const isLatest=pi===visiblePitches.length-1;
-            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?70:px}px;top:${isLatest?25:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
+            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?90:px}px;top:${isLatest?28:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
         }).join('');
         const pitchList=pitches.slice().reverse().map((p,pi)=>{
             const pcls=getPitchClass(p);
@@ -279,8 +279,8 @@ function renderGameTab(data){
 
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
-function mapPitchMiniX(x){return Math.max(0,Math.min(140,((x+0.85)/1.7)*100+20));}
-function mapPitchMiniY(z){return Math.max(0,Math.min(170,(145-((z-1.0)/3.0)*120)+25));}
+function mapPitchMiniX(x){return Math.max(0,Math.min(180,((x+1.5)/3.0)*180));}
+function mapPitchMiniY(z){return Math.max(0,Math.min(220,((4.5-z)/4.0)*220));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
@@ -303,7 +303,7 @@ function animateLatestPitch(){
     if(eid===lastAnimatedPitchEventId){dot.style.left=dot.dataset.x+'px';dot.style.top=dot.dataset.y+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';dot.removeAttribute('data-latest');return;}
     lastAnimatedPitchEventId=eid;
     const targetX=parseFloat(dot.dataset.x),targetY=parseFloat(dot.dataset.y);
-    const startX=70,startY=25;
+    const startX=90,startY=28;
     const duration=500;
     let start=null;
     function step(ts){
