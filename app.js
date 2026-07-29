@@ -197,13 +197,12 @@ function renderGameTab(data){
             const isLatest=pi===visiblePitches.length-1;
             return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?70:px}px;top:${isLatest?25:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
         }).join('');
-        const pitchList=pitches.map((p,pi)=>{
+        const pitchList=pitches.slice().reverse().map((p,pi)=>{
             const pcls=getPitchClass(p);
             const pbg=getPitchBg(pcls);
             const pvelo=p.startSpeed?Math.round(p.startSpeed)+' mph':'';
             const ptype=p.type||'';
-            const isLatest=pi===pitches.length-1;
-            return`<div class="fpc-pitch-row${isLatest?' pitch-row-new':''}" style="${isLatest?'animation-delay:0ms':''}"><span class="fpc-badge fpc-badge-sm" style="${pbg}">${p.pitchNumber}</span><div class="fpc-pitch-info"><span class="fpc-pitch-call">${p.call||p.description||''}</span><span class="fpc-pitch-detail">${ptype}${pvelo?' · '+pvelo:''}</span></div></div>`;
+            return`<div class="fpc-pitch-row"><span class="fpc-badge fpc-badge-sm" style="${pbg}">${p.pitchNumber}</span><div class="fpc-pitch-info"><span class="fpc-pitch-call">${p.call||p.description||''}</span><span class="fpc-pitch-detail">${ptype}${pvelo?' · '+pvelo:''}</span></div></div>`;
         }).join('');
         const batterName=offense.batter?.fullName||'';
         const pitcherName=pitcherObj.fullName||offense.pitcher?.fullName||'';
@@ -277,8 +276,8 @@ function renderGameTab(data){
 
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
-function mapPitchMiniX(x){return Math.max(0,Math.min(140,((x-40)/170)*140));}
-function mapPitchMiniY(y){return Math.max(0,Math.min(170,((y-50)/220)*170));}
+function mapPitchMiniX(x){return Math.max(0,Math.min(140,((x-80)/90)*100+20));}
+function mapPitchMiniY(y){return Math.max(0,Math.min(170,((y-85)/130)*120+25));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
