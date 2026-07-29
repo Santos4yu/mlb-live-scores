@@ -1208,8 +1208,8 @@ body {
 .fpc-badge-sm { width: 22px; height: 22px; font-size: 10px; }
 .fpc-call { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .fpc-type { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 10px; }
-.fpc-zone-wrap { display: flex; gap: 12px; align-items: flex-start; justify-content: center; }
-.fpc-pitch-list { max-width: 140px; display: flex; flex-direction: column; gap: 6px; }
+.fpc-zone-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.fpc-pitch-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .fpc-pitch-row { display: flex; align-items: center; gap: 8px; }
 .fpc-pitch-info { display: flex; flex-direction: column; }
 .fpc-pitch-call { font-size: 13px; font-weight: 700; color: var(--text-primary); }
