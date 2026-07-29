@@ -3,7 +3,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import json, time, os
+import json, time, os, asyncio
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -16,7 +16,7 @@ async def cached_get(url: str, ttl: int = CACHE_TTL, timeout: int = 30) -> dict:
     now = time.time()
     if url in _cache and now - _cache[url][0] < ttl:
         return _cache[url][1]
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
         r = await client.get(url)
         data = r.json()
     _cache[url] = (now, data)
@@ -97,7 +97,7 @@ async def get_schedule(date: str = Query(...)):
 @app.get("/api/game/{gamePk}/feed")
 async def get_game_feed(gamePk: int):
     try:
-        data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=5, timeout=45)
+        data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=5, timeout=90)
     except Exception as e:
         return {"error": str(e), "status": "timeout"}
     ld = data.get("liveData", {})
@@ -106,68 +106,71 @@ async def get_game_feed(gamePk: int):
     boxscore = ld.get("boxscore", {})
 
     all_plays = []
-    for p in plays_data.get("allPlays", []):
-        result = p.get("result", {})
-        about = p.get("about", {})
-        matchup = p.get("matchup", {})
+    try:
+        for p in plays_data.get("allPlays", []):
+            result = p.get("result", {})
+            about = p.get("about", {})
+            matchup = p.get("matchup", {})
 
-        play_obj = {
-            "atBatIndex": p.get("atBatIndex"),
-            "result": result.get("description", ""),
-            "eventType": result.get("eventType", ""),
-            "rbi": result.get("rbi", 0),
-            "score": result.get("score", False),
-            "about": {
-                "halfInning": about.get("halfInning"),
-                "inning": about.get("inning"),
-                "isComplete": about.get("isComplete"),
-                "isScoringPlay": about.get("isScoringPlay"),
-                "hasOut": about.get("hasOut"),
-            },
-            "matchup": {
-                "batter": {
-                    "id": matchup.get("batter", {}).get("id"),
-                    "fullName": matchup.get("batter", {}).get("fullName", ""),
+            play_obj = {
+                "atBatIndex": p.get("atBatIndex"),
+                "result": result.get("description", ""),
+                "eventType": result.get("eventType", ""),
+                "rbi": result.get("rbi", 0),
+                "score": result.get("score", False),
+                "about": {
+                    "halfInning": about.get("halfInning"),
+                    "inning": about.get("inning"),
+                    "isComplete": about.get("isComplete"),
+                    "isScoringPlay": about.get("isScoringPlay"),
+                    "hasOut": about.get("hasOut"),
                 },
-                "pitcher": {
-                    "id": matchup.get("pitcher", {}).get("id"),
-                    "fullName": matchup.get("pitcher", {}).get("fullName", ""),
+                "matchup": {
+                    "batter": {
+                        "id": matchup.get("batter", {}).get("id"),
+                        "fullName": matchup.get("batter", {}).get("fullName", ""),
+                    },
+                    "pitcher": {
+                        "id": matchup.get("pitcher", {}).get("id"),
+                        "fullName": matchup.get("pitcher", {}).get("fullName", ""),
+                    },
                 },
-            },
-            "pitches": [],
-        }
+                "pitches": [],
+            }
 
-        for ev in p.get("playEvents", []):
-            det = ev.get("details", {})
-            pd = ev.get("pitchData", {})
-            coords = pd.get("coordinates", {})
-            is_pitch = bool(pd.get("coordinates") or pd.get("startSpeed") or det.get("call", {}).get("code"))
-            play_obj["pitches"].append({
-                "eventId": ev.get("eventId"),
-                "pitchNumber": ev.get("pitchNumber"),
-                "isPitch": is_pitch,
-                "type": det.get("type", {}).get("description", ""),
-                "code": det.get("code", ""),
-                "description": det.get("description", ""),
-                "call": det.get("call", {}).get("description", ""),
-                "callCode": det.get("call", {}).get("code", ""),
-                "eventType": det.get("eventType", ""),
-                "startSpeed": pd.get("startSpeed") or det.get("startSpeed"),
-                "endSpeed": pd.get("endSpeed") or det.get("endSpeed"),
-                "x": coords.get("x"),
-                "y": coords.get("y"),
-                "px": coords.get("pX"),
-                "pz": coords.get("pZ"),
-                "zone": pd.get("zone"),
-                "szTop": pd.get("strikeZoneTop"),
-                "szBottom": pd.get("strikeZoneBottom"),
-                "isInPlay": det.get("isInPlay", False),
-                "isStrike": det.get("isStrike", False),
-                "isBall": det.get("isBall", False),
-                "count": ev.get("count", {}),
-                "hasDetails": bool(pd.get("coordinates")),
-            })
+            for ev in p.get("playEvents", [])[-30:]:
+                det = ev.get("details", {})
+                pd = ev.get("pitchData", {})
+                coords = pd.get("coordinates", {})
+                is_pitch = bool(pd.get("coordinates") or pd.get("startSpeed") or det.get("call", {}).get("code"))
+                play_obj["pitches"].append({
+                    "eventId": ev.get("eventId"),
+                    "pitchNumber": ev.get("pitchNumber"),
+                    "isPitch": is_pitch,
+                    "type": det.get("type", {}).get("description", ""),
+                    "code": det.get("code", ""),
+                    "description": det.get("description", ""),
+                    "call": det.get("call", {}).get("description", ""),
+                    "callCode": det.get("call", {}).get("code", ""),
+                    "eventType": det.get("eventType", ""),
+                    "startSpeed": pd.get("startSpeed") or det.get("startSpeed"),
+                    "endSpeed": pd.get("endSpeed") or det.get("endSpeed"),
+                    "x": coords.get("x"),
+                    "y": coords.get("y"),
+                    "px": coords.get("pX"),
+                    "pz": coords.get("pZ"),
+                    "zone": pd.get("zone"),
+                    "szTop": pd.get("strikeZoneTop"),
+                    "szBottom": pd.get("strikeZoneBottom"),
+                    "isInPlay": det.get("isInPlay", False),
+                    "isStrike": det.get("isStrike", False),
+                    "isBall": det.get("isBall", False),
+                    "count": ev.get("count", {}),
+                    "hasDetails": bool(pd.get("coordinates")),
+                })
         all_plays.append(play_obj)
+    except Exception:
+        pass
 
     current_play = None
     for p in reversed(all_plays):
