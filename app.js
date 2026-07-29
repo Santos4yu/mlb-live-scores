@@ -6,7 +6,7 @@ let activeTab = 'game';
 let refreshTimer = null;
 let teamsCache = {};
 let lastPlayIndex = -1;
-let lastAnimatedPitchNum = 0;
+let lastAnimatedPitchCount = 0;
 
 const TEAM_COLORS = {
     ARI:{c:'#A71930',id:109},ATL:{c:'#CE1141',id:144},BAL:{c:'#DF4601',id:110},
@@ -98,7 +98,7 @@ function showScores(){switchScreen('app-scores');}
 function switchScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='app-gamecenter'){clearInterval(refreshTimer);refreshTimer=null;}}
 
 async function openGameCenter(pk,away,home){
-    currentGamePk=pk;currentGame={away,home};lastPlayIndex=-1;lastAnimatedPitchNum=0;switchScreen('app-gamecenter');
+    currentGamePk=pk;currentGame={away,home};lastPlayIndex=-1;lastAnimatedPitchCount=0;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
     renderGCTabs(away,home);await loadGameFeed();
     clearInterval(refreshTimer);refreshTimer=setInterval(loadGameFeed,3000);
@@ -183,12 +183,12 @@ function renderGameTab(data){
         const call=lp.call||lp.description||'';
         const cb=lp.count?.balls??ls.balls,cs=lp.count?.strikes??ls.strikes;
         const ct=cb===0&&cs===0?'No balls, no strikes':cb===1&&cs===0?'1 ball, no strikes':cb===0&&cs===1?'No balls, 1 strike':`${cb} ball${cb!==1?'s':''}, ${cs} strike${cs!==1?'s':''}`;
-        const pitchDots=pitches.filter(p=>p.x!=null&&p.y!=null).map((p,pi)=>{
+        const visiblePitches=pitches.filter(p=>p.x!=null&&p.y!=null);
+        const pitchDots=visiblePitches.map((p,pi)=>{
             const pcls=getPitchClass(p);
             const px=mapPitchMiniX(p.x), py=mapPitchMiniY(p.y);
-            const isLatest=pi===pitches.filter(pp=>pp.x!=null&&pp.y!=null).length-1;
-            if(isLatest)console.log('Pitch coords:',{rawX:p.x,rawY:p.y,mappedX:px,mappedY:py});
-            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-latest="${isLatest}" style="left:${isLatest?70:px}px;top:${isLatest?25:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
+            const isLatest=pi===visiblePitches.length-1;
+            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-total="${pitches.length}" data-latest="${isLatest}" style="left:${isLatest?70:px}px;top:${isLatest?25:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
         }).join('');
         const pitchList=pitches.map((p,pi)=>{
             const pcls=getPitchClass(p);
@@ -290,11 +290,11 @@ function getPitchBg(c){
 function animateLatestPitch(){
     const dot=document.querySelector('.mini-sz-dot[data-latest="true"]');
     if(!dot)return;
-    const pitchNum=parseInt(dot.textContent)||0;
-    if(pitchNum<=lastAnimatedPitchNum){dot.style.left=dot.dataset.x+'px';dot.style.top=dot.dataset.y+'px';dot.style.opacity='1';dot.removeAttribute('data-latest');return;}
-    lastAnimatedPitchNum=pitchNum;
+    const totalCount=parseInt(dot.dataset.total)||0;
+    if(totalCount<=lastAnimatedPitchCount){dot.style.left=dot.dataset.x+'px';dot.style.top=dot.dataset.y+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';dot.removeAttribute('data-latest');return;}
+    lastAnimatedPitchCount=totalCount;
     const targetX=parseFloat(dot.dataset.x),targetY=parseFloat(dot.dataset.y);
-    const startX=50,startY=-10;
+    const startX=70,startY=25;
     const duration=500;
     let start=null;
     function step(ts){
