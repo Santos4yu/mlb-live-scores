@@ -64,7 +64,7 @@ function renderGames(games){
         const aw=g.away,hm=g.home,ls=g.linescore,st=g.status;
         const isLive=st.abstract==='Live',isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed',isPreview=st.abstract==='Preview';
         let inningText='';
-        if(isLive)inningText=`${ls.inningState||''} ${ls.inningOrdinal||''}`.trim();
+        if(isLive){const innN=ls.inning||'';const halfL=ls.inningState==='Middle'?'Mid':ls.isTopInning?'Top':'Bot';inningText=`${halfL} ${innN}`;}
         else if(isFinal){inningText='Final';if(ls.inning>9)inningText+=' / '+ls.inning;}
         else if(isDelayed)inningText='Delayed';
         else if(isPreview){const gt=new Date(g.gameDate);inningText=gt.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
@@ -127,7 +127,11 @@ function renderGCHeader(data){
     const awS=data.boxscore?.away?.batters?calcScore(data.boxscore.away):'?';
     const hmS=data.boxscore?.home?.batters?calcScore(data.boxscore.home):'?';
     let statusHtml='';
-    if(isLive)statusHtml=`<span class="gc-header-status live"><span class="live-dot"></span>${ls.inningState||''} ${ls.inningOrdinal||''}</span><span class="outs" style="color:var(--text-secondary);margin-left:6px">${ls.outs} out${ls.outs!==1?'s':''}</span>`;
+    if(isLive){
+        const innNum=ls.inning||'';
+        const halfLabel=ls.inningState==='Middle'?'Mid':ls.isTopInning?'Top':'Bot';
+        statusHtml=`<span class="gc-header-status live"><span class="live-dot"></span>${halfLabel} ${innNum}</span><span class="outs" style="color:var(--text-secondary);margin-left:6px">${ls.outs} out${ls.outs!==1?'s':''}</span>`;
+    }
     else if(isFinal)statusHtml=`<span class="gc-header-status" style="color:var(--text-muted)">Final</span>`;
     else statusHtml=`<span class="gc-header-status" style="color:var(--text-secondary)">${st?.detailedState||''}</span>`;
     document.getElementById('gcHeader').innerHTML=`
@@ -190,10 +194,11 @@ function renderGameTab(data){
         const call=lp.call||lp.description||'';
         const cb=lp.count?.balls??ls.balls,cs=lp.count?.strikes??ls.strikes;
         const ct=cb===0&&cs===0?'No balls, no strikes':cb===1&&cs===0?'1 ball, no strikes':cb===0&&cs===1?'No balls, 1 strike':`${cb} ball${cb!==1?'s':''}, ${cs} strike${cs!==1?'s':''}`;
-        const visiblePitches=pitches.filter(p=>p.x!=null&&p.y!=null);
+        const visiblePitches=pitches.filter(p=>(p.px!=null&&p.pz!=null)||(p.x!=null&&p.y!=null));
         const pitchDots=visiblePitches.map((p,pi)=>{
             const pcls=getPitchClass(p);
-            const px=mapPitchMiniX(p.x), py=mapPitchMiniY(p.y);
+            const px=p.px!=null?mapPitchMiniX(p.px):mapPitchMiniX(((p.x||125)-80)/90*1.7-0.85);
+            const py=p.pz!=null?mapPitchMiniY(p.pz):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
             const isLatest=pi===visiblePitches.length-1;
             return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?70:px}px;top:${isLatest?25:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
         }).join('');
@@ -276,8 +281,8 @@ function renderGameTab(data){
 
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
-function mapPitchMiniX(x){return Math.max(0,Math.min(140,((x-80)/90)*100+20));}
-function mapPitchMiniY(y){return Math.max(0,Math.min(170,((y-85)/130)*120+25));}
+function mapPitchMiniX(x){return Math.max(0,Math.min(140,((x+0.85)/1.7)*100+20));}
+function mapPitchMiniY(z){return Math.max(0,Math.min(170,(145-((z-1.0)/3.0)*120)+25));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
