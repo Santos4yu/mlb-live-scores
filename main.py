@@ -11,14 +11,14 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 MLB = "https://statsapi.mlb.com/api/v1"
 _cache: dict[str, tuple[float, dict]] = {}
 CACHE_TTL = 15
-_client = httpx.AsyncClient(timeout=45)
 
 async def cached_get(url: str, ttl: int = CACHE_TTL, timeout: int = 30) -> dict:
     now = time.time()
     if url in _cache and now - _cache[url][0] < ttl:
         return _cache[url][1]
-    r = await _client.get(url)
-    data = r.json()
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        r = await client.get(url)
+        data = r.json()
     _cache[url] = (now, data)
     return data
 

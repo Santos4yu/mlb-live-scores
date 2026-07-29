@@ -109,12 +109,16 @@ function closeGameCenter(){clearInterval(refreshTimer);refreshTimer=null;current
 
 async function loadGameFeed(){
     if(!currentGamePk)return;
-    try{const r=await fetch(`${API}/api/game/${currentGamePk}/feed`);
+    try{const r=await fetch(`/api/game/${currentGamePk}/feed`);
     if(!r.ok)throw new Error(r.status);
     const d=await r.json();
+    const loader=document.getElementById('gcLoader');
+    if(loader)loader.remove();
     if(d.error){console.error('Feed error:',d.error);return;}
-    document.getElementById('gcLoader')?.remove();renderGCHeader(d);renderGameTab(d);renderTeamTab(d,'away');renderTeamTab(d,'home');showGCPanel(activeTab);}
-    catch(e){console.error('Feed error:',e);}
+    renderGCHeader(d);renderGameTab(d);renderTeamTab(d,'away');renderTeamTab(d,'home');showGCPanel(activeTab);}
+    catch(e){console.error('Feed error:',e);
+    const loader=document.getElementById('gcLoader');
+    if(loader)loader.innerHTML='<div class="loading-state"><p style="color:var(--text-muted)">Connection issue. Retrying...</p></div>';}
 }
 
 function renderGCHeader(data){
