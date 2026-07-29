@@ -116,9 +116,7 @@ async function loadGameFeed(){
     if(loader)loader.remove();
     if(d.error){console.error('Feed error:',d.error);return;}
     renderGCHeader(d);renderGameTab(d);renderTeamTab(d,'away');renderTeamTab(d,'home');showGCPanel(activeTab);}
-    catch(e){console.error('Feed error:',e);
-    const loader=document.getElementById('gcLoader');
-    if(loader)loader.innerHTML='<div class="loading-state"><p style="color:var(--text-muted)">Connection issue. Retrying...</p></div>';}
+    catch(e){console.error('Feed error:',e);}
 }
 
 function renderGCHeader(data){

@@ -97,9 +97,13 @@ async def get_schedule(date: str = Query(...)):
 @app.get("/api/game/{gamePk}/feed")
 async def get_game_feed(gamePk: int):
     try:
-        data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=5, timeout=90)
+        data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=10, timeout=30)
     except Exception as e:
-        return {"error": str(e), "status": "timeout"}
+        cached = _cache.get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live")
+        if cached:
+            data = cached[1]
+        else:
+            return {"error": str(e), "status": "timeout"}
     ld = data.get("liveData", {})
     plays_data = ld.get("plays", {})
     linescore_full = ld.get("linescore", {})
