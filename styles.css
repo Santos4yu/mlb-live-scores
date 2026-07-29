@@ -1208,8 +1208,8 @@ body {
 .fpc-badge-sm { width: 22px; height: 22px; font-size: 10px; }
 .fpc-call { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .fpc-type { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 10px; }
-.fpc-zone-wrap { display: flex; gap: 16px; align-items: flex-start; }
-.fpc-pitch-list { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.fpc-zone-wrap { display: flex; gap: 12px; align-items: flex-start; justify-content: center; }
+.fpc-pitch-list { max-width: 140px; display: flex; flex-direction: column; gap: 6px; }
 .fpc-pitch-row { display: flex; align-items: center; gap: 8px; }
 .fpc-pitch-info { display: flex; flex-direction: column; }
 .fpc-pitch-call { font-size: 13px; font-weight: 700; color: var(--text-primary); }
@@ -1217,15 +1217,15 @@ body {
 
 /* ── Mini Strike Zone (in pitch card) ─────────────────────── */
 .mini-sz-zone {
-    position: relative; width: 180px; height: 220px;
+    position: relative; width: 200px; height: 240px;
     background: rgba(10,10,20,0.8);
     border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 .mini-sz-grid {
     position: absolute;
-    top: 28px; left: 39px; right: 39px; bottom: 28px;
+    top: 40px; left: 55px; right: 55px; bottom: 40px;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
     border: 1px solid rgba(255,255,255,0.2);
