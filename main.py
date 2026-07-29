@@ -96,26 +96,34 @@ async def get_schedule(date: str = Query(...)):
 
 @app.get("/api/game/{gamePk}/feed")
 async def get_game_feed(gamePk: int):
-    try:
-        data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=10, timeout=30)
-    except Exception as e:
-        cached = _cache.get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live")
-        if cached:
-            data = cached[1]
-        else:
-            return {"error": str(e), "status": "timeout"}
-    ld = data.get("liveData", {})
-    plays_data = ld.get("plays", {})
-    linescore_full = ld.get("linescore", {})
-    boxscore = ld.get("boxscore", {})
+    cache_key = f"feed:{gamePk}"
+    now = time.time()
+    if cache_key in _cache and now - _cache[cache_key][0] < 10:
+        return _cache[cache_key][1]
 
-    all_plays = []
     try:
-        for p in plays_data.get("allPlays", []):
+        data = await cached_get(
+            f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live",
+            ttl=10, timeout=25,
+        )
+    except Exception:
+        cached = _cache.get(cache_key)
+        if cached:
+            return cached[1]
+        return {"error": "timeout", "status": "timeout"}
+
+    try:
+        ld = data.get("liveData", {})
+        plays_data = ld.get("plays", {})
+        linescore_full = ld.get("linescore", {})
+        boxscore = ld.get("boxscore", {})
+
+        raw_plays = plays_data.get("allPlays", [])
+        all_plays = []
+        for p in raw_plays[-40:]:
             result = p.get("result", {})
             about = p.get("about", {})
             matchup = p.get("matchup", {})
-
             play_obj = {
                 "atBatIndex": p.get("atBatIndex"),
                 "result": result.get("description", ""),
@@ -130,23 +138,16 @@ async def get_game_feed(gamePk: int):
                     "hasOut": about.get("hasOut"),
                 },
                 "matchup": {
-                    "batter": {
-                        "id": matchup.get("batter", {}).get("id"),
-                        "fullName": matchup.get("batter", {}).get("fullName", ""),
-                    },
-                    "pitcher": {
-                        "id": matchup.get("pitcher", {}).get("id"),
-                        "fullName": matchup.get("pitcher", {}).get("fullName", ""),
-                    },
+                    "batter": {"id": matchup.get("batter", {}).get("id"), "fullName": matchup.get("batter", {}).get("fullName", "")},
+                    "pitcher": {"id": matchup.get("pitcher", {}).get("id"), "fullName": matchup.get("pitcher", {}).get("fullName", "")},
                 },
                 "pitches": [],
             }
-
-            for ev in p.get("playEvents", [])[-30:]:
+            for ev in p.get("playEvents", [])[-20:]:
                 det = ev.get("details", {})
                 pd = ev.get("pitchData", {})
                 coords = pd.get("coordinates", {})
-                is_pitch = bool(pd.get("coordinates") or pd.get("startSpeed") or det.get("call", {}).get("code"))
+                is_pitch = bool(coords or pd.get("startSpeed") or det.get("call", {}).get("code"))
                 play_obj["pitches"].append({
                     "eventId": ev.get("eventId"),
                     "pitchNumber": ev.get("pitchNumber"),
@@ -159,10 +160,8 @@ async def get_game_feed(gamePk: int):
                     "eventType": det.get("eventType", ""),
                     "startSpeed": pd.get("startSpeed") or det.get("startSpeed"),
                     "endSpeed": pd.get("endSpeed") or det.get("endSpeed"),
-                    "x": coords.get("x"),
-                    "y": coords.get("y"),
-                    "px": coords.get("pX"),
-                    "pz": coords.get("pZ"),
+                    "x": coords.get("x"), "y": coords.get("y"),
+                    "px": coords.get("pX"), "pz": coords.get("pZ"),
                     "zone": pd.get("zone"),
                     "szTop": pd.get("strikeZoneTop"),
                     "szBottom": pd.get("strikeZoneBottom"),
@@ -170,132 +169,113 @@ async def get_game_feed(gamePk: int):
                     "isStrike": det.get("isStrike", False),
                     "isBall": det.get("isBall", False),
                     "count": ev.get("count", {}),
-                    "hasDetails": bool(pd.get("coordinates")),
+                    "hasDetails": bool(coords),
                 })
-        all_plays.append(play_obj)
-    except Exception:
-        pass
+            all_plays.append(play_obj)
 
-    current_play = None
-    for p in reversed(all_plays):
-        if not p["about"]["isComplete"]:
-            current_play = p
-            break
-    if current_play is None and all_plays:
-        current_play = all_plays[-1]
+        current_play = None
+        for p in reversed(all_plays):
+            if not p["about"]["isComplete"]:
+                current_play = p
+                break
+        if current_play is None and all_plays:
+            current_play = all_plays[-1]
 
-    # Extract game events (mound visits, pitching changes, steals, etc.)
-    game_events = []
-    event_types_of_interest = {
-        'mound_visit': ('Mound Visit', 'mound'),
-        'pitching_substitution': ('Pitching Change', 'pitcher-change'),
-        'offensive_substitution': ('Defensive Sub', 'sub'),
-        'stolen_base_2b': ('Stolen Base', 'steal'),
-        'stolen_base_3b': ('Stolen Base', 'steal'),
-        'caught_stealing_2b': ('Caught Stealing', 'steal'),
-        'caught_stealing_3b': ('Caught Stealing', 'steal'),
-        'wild_pitch': ('Wild Pitch', 'event'),
-        'passed_ball': ('Passed Ball', 'event'),
-        'pickoff': ('Pickoff Attempt', 'mound'),
-        'review': ('Replay Review', 'replay'),
-        'challenge': ('Replay Review', 'replay'),
-        'defensive_switch': ('Defensive Sub', 'sub'),
-        'injury': ('Injury', 'injury'),
-    }
-    for p in all_plays:
-        for ev in p.get("pitches", []):
-            evt = ev.get("eventType", "")
-            desc = ev.get("description", "")
-            if not evt and desc:
-                if 'Step Off' in desc: evt = 'stepoff'
-                elif 'Hit By Pitch' in desc: evt = 'hit_by_pitch'
-            if evt in event_types_of_interest:
-                label, icon_type = event_types_of_interest[evt]
-                game_events.append({
-                    "type": icon_type,
-                    "title": label if evt != 'pitching_substitution' else desc.split('.')[0] if '.' in desc else desc,
-                    "description": desc,
-                    "inning": f"{p.get('about',{}).get('halfInning','').replace('top','Top ').replace('bottom','Bot ')}{p.get('about',{}).get('inning','')}",
-                })
-    game_events.reverse()
+        event_types = {
+            'mound_visit': ('Mound Visit', 'mound'),
+            'pitching_substitution': ('Pitching Change', 'pitcher-change'),
+            'offensive_substitution': ('Defensive Sub', 'sub'),
+            'stolen_base_2b': ('Stolen Base', 'steal'), 'stolen_base_3b': ('Stolen Base', 'steal'),
+            'caught_stealing_2b': ('Caught Stealing', 'steal'), 'caught_stealing_3b': ('Caught Stealing', 'steal'),
+            'wild_pitch': ('Wild Pitch', 'event'), 'passed_ball': ('Passed Ball', 'event'),
+            'pickoff': ('Pickoff Attempt', 'mound'),
+            'review': ('Replay Review', 'replay'), 'challenge': ('Replay Review', 'replay'),
+            'defensive_switch': ('Defensive Sub', 'sub'), 'injury': ('Injury', 'injury'),
+        }
+        game_events = []
+        for p in all_plays:
+            for ev in p.get("pitches", []):
+                evt = ev.get("eventType", "")
+                desc = ev.get("description", "")
+                if not evt and desc:
+                    if 'Step Off' in desc: evt = 'stepoff'
+                    elif 'Hit By Pitch' in desc: evt = 'hit_by_pitch'
+                if evt in event_types:
+                    label, icon_type = event_types[evt]
+                    game_events.append({
+                        "type": icon_type,
+                        "title": label if evt != 'pitching_substitution' else desc.split('.')[0] if '.' in desc else desc,
+                        "description": desc,
+                        "inning": f"{p.get('about',{}).get('halfInning','').replace('top','Top ').replace('bottom','Bot ')}{p.get('about',{}).get('inning','')}",
+                    })
+        game_events.reverse()
 
-    teams_box = boxscore.get("teams", {})
-    def parse_team_box(team_data):
-        players_data = team_data.get("players", {})
-        batters = []
-        pitchers = []
-        for pid, pdata in players_data.items():
-            stats = pdata.get("stats", {})
-            batting = stats.get("batting", {})
-            pitching = stats.get("pitching", {})
-            person = pdata.get("person", {})
-            position = pdata.get("position", {})
+        teams_box = boxscore.get("teams", {})
+        def parse_team_box(team_data):
+            batters, pitchers = [], []
+            for pid, pdata in team_data.get("players", {}).items():
+                stats = pdata.get("stats", {})
+                batting = stats.get("batting", {})
+                pitching = stats.get("pitching", {})
+                person = pdata.get("person", {})
+                position = pdata.get("position", {})
+                if batting.get("atBats", 0) > 0 or batting.get("summary"):
+                    batters.append({
+                        "id": person.get("id"), "name": person.get("fullName", ""),
+                        "position": position.get("abbreviation", ""),
+                        "battingOrder": pdata.get("battingOrder", 0),
+                        "ab": batting.get("atBats", 0), "h": batting.get("hits", 0),
+                        "r": batting.get("runs", 0), "rbi": batting.get("rbi", 0),
+                        "so": batting.get("strikeOuts", 0), "bb": batting.get("baseOnBalls", 0),
+                        "hr": batting.get("homeRuns", 0), "tb": batting.get("totalBases", 0),
+                        "sb": batting.get("stolenBases", 0),
+                    })
+                if pitching.get("inningsPitched"):
+                    tp = pitching.get("pitchesThrown", 0)
+                    st = pitching.get("strikesThrown", 0)
+                    pitchers.append({
+                        "id": person.get("id"), "name": person.get("fullName", ""),
+                        "ip": pitching.get("inningsPitched", "0.0"), "h": pitching.get("hits", 0),
+                        "r": pitching.get("runs", 0), "er": pitching.get("earnedRuns", 0),
+                        "k": pitching.get("strikeOuts", 0), "bb": pitching.get("baseOnBalls", 0),
+                        "hr": pitching.get("homeRuns", 0), "era": pitching.get("era", "0.00"),
+                        "strk": f"{round(st/tp*100)}%" if tp > 0 else "0%",
+                    })
+            batters.sort(key=lambda x: x.get("battingOrder", 99))
+            return {"batters": batters, "pitchers": pitchers}
 
-            if batting.get("atBats", 0) > 0 or batting.get("summary"):
-                batters.append({
-                    "id": person.get("id"),
-                    "name": person.get("fullName", ""),
-                    "position": position.get("abbreviation", ""),
-                    "battingOrder": pdata.get("battingOrder", 0),
-                    "ab": batting.get("atBats", 0),
-                    "h": batting.get("hits", 0),
-                    "r": batting.get("runs", 0),
-                    "rbi": batting.get("rbi", 0),
-                    "so": batting.get("strikeOuts", 0),
-                    "bb": batting.get("baseOnBalls", 0),
-                    "hr": batting.get("homeRuns", 0),
-                    "tb": batting.get("totalBases", 0),
-                    "sb": batting.get("stolenBases", 0),
-                })
-            if pitching.get("inningsPitched"):
-                total_pitches = pitching.get("pitchesThrown", 0)
-                strikes = pitching.get("strikesThrown", 0)
-                strk_pct = f"{round(strikes/total_pitches*100)}%" if total_pitches > 0 else "0%"
-                pitchers.append({
-                    "id": person.get("id"),
-                    "name": person.get("fullName", ""),
-                    "ip": pitching.get("inningsPitched", "0.0"),
-                    "h": pitching.get("hits", 0),
-                    "r": pitching.get("runs", 0),
-                    "er": pitching.get("earnedRuns", 0),
-                    "k": pitching.get("strikeOuts", 0),
-                    "bb": pitching.get("baseOnBalls", 0),
-                    "hr": pitching.get("homeRuns", 0),
-                    "era": pitching.get("era", "0.00"),
-                    "strk": strk_pct,
-                })
-        batters.sort(key=lambda x: x.get("battingOrder", 99))
-        return {"batters": batters, "pitchers": pitchers}
+        cp_matchup = plays_data.get("currentPlay", {}).get("matchup", {})
 
-    def parse_linescore_detail():
-        innings = linescore_full.get("innings", [])
-        return [{"num": inn.get("num"), "away": inn.get("away", {}), "home": inn.get("home", {})} for inn in innings]
-
-    cp_matchup = plays_data.get("currentPlay", {}).get("matchup", {})
-
-    return {
-        "gamePk": gamePk,
-        "status": data.get("gameData", {}).get("status", {}),
-        "plays": all_plays,
-        "currentPlay": current_play,
-        "linescore": {
-            "inning": linescore_full.get("currentInning"),
-            "inningState": linescore_full.get("inningState"),
-            "inningHalf": linescore_full.get("inningHalf"),
-            "isTopInning": linescore_full.get("isTopInning"),
-            "outs": linescore_full.get("outs", 0),
-            "balls": linescore_full.get("balls", 0),
-            "strikes": linescore_full.get("strikes", 0),
-            "inningOrdinal": linescore_full.get("currentInningOrdinal", ""),
-            "scheduledInnings": linescore_full.get("scheduledInnings", 9),
-            "offense": linescore_full.get("offense", {}),
-        },
-        "boxscore": {"away": parse_team_box(teams_box.get("away", {})), "home": parse_team_box(teams_box.get("home", {}))},
-        "linescoreInnings": parse_linescore_detail(),
-        "currentBatter": cp_matchup.get("batter"),
-        "currentPitcher": cp_matchup.get("pitcher"),
-        "gameEvents": game_events,
-    }
+        result = {
+            "gamePk": gamePk,
+            "status": data.get("gameData", {}).get("status", {}),
+            "plays": all_plays,
+            "currentPlay": current_play,
+            "linescore": {
+                "inning": linescore_full.get("currentInning"),
+                "inningState": linescore_full.get("inningState"),
+                "inningHalf": linescore_full.get("inningHalf"),
+                "isTopInning": linescore_full.get("isTopInning"),
+                "outs": linescore_full.get("outs", 0),
+                "balls": linescore_full.get("balls", 0),
+                "strikes": linescore_full.get("strikes", 0),
+                "inningOrdinal": linescore_full.get("currentInningOrdinal", ""),
+                "scheduledInnings": linescore_full.get("scheduledInnings", 9),
+                "offense": linescore_full.get("offense", {}),
+            },
+            "boxscore": {"away": parse_team_box(teams_box.get("away", {})), "home": parse_team_box(teams_box.get("home", {}))},
+            "linescoreInnings": [{"num": inn.get("num"), "away": inn.get("away", {}), "home": inn.get("home", {})} for inn in linescore_full.get("innings", [])],
+            "currentBatter": cp_matchup.get("batter"),
+            "currentPitcher": cp_matchup.get("pitcher"),
+            "gameEvents": game_events,
+        }
+        _cache[cache_key] = (now, result)
+        return result
+    except Exception as e:
+        cached = _cache.get(cache_key)
+        if cached:
+            return cached[1]
+        return {"error": str(e), "status": "error"}
 
 
 @app.get("/api/standings")
