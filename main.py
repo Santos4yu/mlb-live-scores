@@ -96,7 +96,7 @@ async def get_schedule(date: str = Query(...)):
 
 @app.get("/api/game/{gamePk}/feed")
 async def get_game_feed(gamePk: int):
-    data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=0, timeout=30)
+    data = await cached_get(f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live", ttl=1, timeout=30)
     ld = data.get("liveData", {})
     plays_data = ld.get("plays", {})
     linescore_full = ld.get("linescore", {})
