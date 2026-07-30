@@ -213,7 +213,7 @@ function renderGameTab(data){
             const px=p.px!=null?mapPitchMiniX(p.px):mapPitchMiniX(((p.x||125)-80)/90*1.7-0.85);
             const py=p.pz!=null?mapPitchMiniY(p.pz):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
             const isLatest=pi===visiblePitches.length-1;
-            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?75:px}px;top:${isLatest?85:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
+            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?75:px}px;top:${isLatest?82:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
         }).join('');
         const pitchList=pitches.slice().reverse().map((p,pi)=>{
             const pcls=getPitchClass(p);
@@ -233,7 +233,7 @@ function renderGameTab(data){
                     <img src="${playerHeadshotUrl(pitcherObj.id)}" alt="" class="fpc-avatar fpc-avatar-pitcher" onerror="this.style.display='none'">
                 </div>
                 <div class="fpc-info"><div class="fpc-count">${ct}</div><div class="fpc-batter">${batterFirst} · ${bStats?bStats.h+'/'+bStats.ab:'0/0'}, ${avg(bStats)} (${bSide})</div><div class="fpc-pitcher">${pitcherFirst} · ${pStats?pStats.ip:'0'} ip, ${pStats?pStats.k:0} k, ${pitches.length} p (${pSide})</div></div></div>
-            <div class="fpc-body"><div class="fpc-call-row"><span class="fpc-badge" style="${bg}">${pitches.length}</span><span class="fpc-call">${call}</span></div><span class="fpc-type">${lp.type||''} · ${velo?velo+' mph':''}</span>
+            <div class="fpc-body">
             <div class="fpc-zone-wrap"><div class="fpc-pitch-list">${pitchList}</div><div class="mini-sz-zone"><div class="mini-sz-grid">${Array(9).fill('').map(()=>'<div class="mini-sz-cell"></div>').join('')}</div>${pitchDots}</div></div></div></div>`;
     }
 
@@ -295,7 +295,7 @@ function renderGameTab(data){
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
 function mapPitchMiniX(x){return Math.max(0,Math.min(150,((x+0.71)/1.42)*100+25));}
-function mapPitchMiniY(z){return Math.max(0,Math.min(180,((3.5-z)/2.0)*140+15));}
+function mapPitchMiniY(z){return Math.max(0,Math.min(180,((3.5-z)/2.0)*147+8));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
@@ -318,7 +318,7 @@ function animateLatestPitch(){
     if(eid===lastAnimatedPitchEventId){dot.style.left=dot.dataset.x+'px';dot.style.top=dot.dataset.y+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';dot.removeAttribute('data-latest');return;}
     lastAnimatedPitchEventId=eid;
     const targetX=parseFloat(dot.dataset.x),targetY=parseFloat(dot.dataset.y);
-    const startX=75,startY=85;
+    const startX=75,startY=82;
     const duration=300;
     let start=null;
     function step(ts){
