@@ -104,9 +104,19 @@ async function openGameCenter(pk,away,home){
     clearInterval(refreshTimer);refreshTimer=setInterval(loadGameFeed,1500);
 }
 function renderGCTabs(away,home){document.getElementById('gcTabs').innerHTML=`<button class="gc-tab active" data-tab="game" onclick="showGCPanel('game')">Feed</button><button class="gc-tab" data-tab="away" onclick="showGCPanel('away')">${away.abbr}</button><button class="gc-tab" data-tab="home" onclick="showGCPanel('home')">${home.abbr}</button>`;}
-function showGCPanel(tab){activeTab=tab;document.querySelectorAll('.gc-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));document.querySelectorAll('.gc-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));}
+function showGCPanel(tab){
+    activeTab=tab;
+    document.querySelectorAll('.gc-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+    document.querySelectorAll('.gc-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+    if(lastFeedData){
+        if(tab==='game')renderGameTab(lastFeedData);
+        else if(tab==='away')renderTeamTab(lastFeedData,'away');
+        else if(tab==='home')renderTeamTab(lastFeedData,'home');
+    }
+}
 function closeGameCenter(){clearInterval(refreshTimer);refreshTimer=null;currentGamePk=null;switchScreen('app-scores');}
 
+let lastFeedData=null;
 async function loadGameFeed(){
     if(!currentGamePk)return;
     try{const r=await fetch(`/api/game/${currentGamePk}/feed`);
@@ -115,7 +125,12 @@ async function loadGameFeed(){
     const loader=document.getElementById('gcLoader');
     if(loader)loader.remove();
     if(d.error){console.error('Feed error:',d.error);return;}
-    renderGCHeader(d);renderGameTab(d);renderTeamTab(d,'away');renderTeamTab(d,'home');showGCPanel(activeTab);}
+    lastFeedData=d;
+    renderGCHeader(d);
+    if(activeTab==='game')renderGameTab(d);
+    else if(activeTab==='away')renderTeamTab(d,'away');
+    else if(activeTab==='home')renderTeamTab(d,'home');
+    showGCPanel(activeTab);}
     catch(e){console.error('Feed error:',e);}
 }
 
