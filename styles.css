@@ -362,7 +362,7 @@ body {
     background: var(--accent);
     transition: background 0.3s;
 }
-.diamond-base.occupied { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.diamond-base.occupied { background: var(--text-muted); box-shadow: 0 0 6px rgba(150,150,150,0.2); }
 .diamond-base.first { bottom: 4px; right: 2px; }
 .diamond-base.second { top: 2px; left: 50%; transform: translateX(-50%) rotate(45deg); }
 .diamond-base.third { bottom: 4px; left: 2px; }
@@ -736,8 +736,8 @@ body {
     overflow: visible;
 }
 .diamond-large .base.occupied {
-    background: var(--accent);
-    box-shadow: 0 0 16px var(--accent-glow);
+    background: var(--text-muted);
+    box-shadow: 0 0 12px rgba(150,150,150,0.25);
 }
 .diamond-large .base-pos.first { top: 50%; right: 2px; transform: translateY(-50%) rotate(45deg); }
 .diamond-large .base-pos.second { top: 6px; left: 50%; transform: translateX(-50%) rotate(45deg); }
@@ -1282,12 +1282,12 @@ body {
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
 .diamond-wrap { flex-shrink: 0; }
 .base-avatar {
-    width: 20px; height: 20px; border-radius: 50%;
+    width: 26px; height: 26px; border-radius: 50%;
     object-fit: cover; position: absolute;
     top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg);
     border: 1.5px solid var(--border);
     z-index: 5;
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+    filter: drop-shadow(0 1px 4px rgba(0,0,0,0.4));
 }
 
 /* ── Feed Pitch Card ──────────────────────────────────────── */
