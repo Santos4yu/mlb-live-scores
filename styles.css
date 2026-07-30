@@ -1260,16 +1260,16 @@ body {
 .sit-row { display: flex; flex-direction: column; gap: 4px; }
 .sit-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .sit-player { display: flex; align-items: center; gap: 8px; }
-.sit-avatar { width: 36px; height: 36px; border-radius: 0; object-fit: contain; background: transparent; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+.sit-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--bg-elevated); }
 .sit-player-info { display: flex; flex-direction: column; }
 .sit-player-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
 .diamond-wrap { flex-shrink: 0; }
 .base-avatar {
-    width: 34px; height: 34px; border-radius: 0;
-    object-fit: contain; position: absolute;
+    width: 28px; height: 28px; border-radius: 50%;
+    object-fit: cover; position: absolute;
     top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg);
-    border: none;
+    border: 2px solid rgba(255,255,255,0.4);
     z-index: 5;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
 }
@@ -1299,33 +1299,34 @@ body {
 }
 .fpc-avatar-stack {
     position: relative;
-    width: 80px;
-    height: 70px;
-    flex: 0 0 80px;
+    width: 65px;
+    height: 56px;
+    flex: 0 0 65px;
     isolation: isolate;
 }
 .fpc-avatar {
     position: absolute;
-    border-radius: 0;
-    object-fit: contain;
-    object-position: center top;
-    background: transparent;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center 15%;
+    background: var(--bg-elevated);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.38);
 }
 .fpc-avatar-batter {
     top: 0;
     left: 0;
-    width: 64px;
-    height: 64px;
+    width: 48px;
+    height: 48px;
     z-index: 2;
-    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    border: 3px solid var(--bg-card);
 }
 .fpc-avatar-pitcher {
-    top: 24px;
-    left: 40px;
-    width: 42px;
-    height: 42px;
+    top: 18px;
+    left: 28px;
+    width: 34px;
+    height: 34px;
     z-index: 3;
-    filter: drop-shadow(0 3px 8px rgba(0,0,0,0.5));
+    border: 3px solid var(--accent);
 }
     box-shadow: 0 7px 18px rgba(0,0,0,0.5), 0 0 0 2px rgba(124,58,237,0.15);
 }
@@ -1411,9 +1412,8 @@ body {
     flex-shrink: 0;
 }
 .feed-avatar {
-    width: 44px; height: 44px; border-radius: 0; object-fit: contain;
-    background: transparent;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    background: var(--bg-elevated);
 }
 .feed-indicator {
     position: absolute;
@@ -1554,9 +1554,9 @@ body {
 
 @media (max-width: 440px) {
     .fpc-top { gap: 12px; padding: 14px; }
-    .fpc-avatar-stack { width: 72px; height: 62px; flex-basis: 72px; }
-    .fpc-avatar-batter { width: 56px; height: 56px; }
-    .fpc-avatar-pitcher { top: 20px; left: 36px; width: 38px; height: 38px; }
+    .fpc-avatar-stack { width: 65px; height: 56px; flex-basis: 65px; }
+    .fpc-avatar-batter { width: 48px; height: 48px; }
+    .fpc-avatar-pitcher { top: 18px; left: 28px; width: 34px; height: 34px; }
     .fpc-batter,
     .fpc-pitcher { display: block; }
     .fpc-player-name,

@@ -645,8 +645,8 @@ function renderGameTab(data){
         :null;
     const odStats=findB(offense.onDeck?.id),ihStats=findB(offense.inHole?.id);
     const bSide=offense.batSide?.code||'',pSide=offense.pitchHand?.code||'';
-    const avg=s=>{if(!s)return'.000';if(s.seasonAvg)return s.seasonAvg;if(!s.seasonAB||s.seasonAB===0)return'.000';return'.'+String(Math.round(s.seasonH/s.seasonAB*1000)).padStart(3,'0');};
-    const seasonLine=s=>{if(!s)return'0/0';return s.seasonH!=null&&s.seasonAB!=null?s.seasonH+'/'+s.seasonAB:s.ab!=null?s.h+'/'+s.ab:'0/0';};
+    const avg=s=>{if(!s)return'.000';if(s.ab!=null&&s.ab>0)return'.'+String(Math.round(s.h/s.ab*1000)).padStart(3,'0');if(s.seasonAvg)return s.seasonAvg;return'.000';};
+    const seasonLine=s=>{if(!s)return'0/0';if(s.ab!=null)return s.h+'/'+s.ab;if(s.seasonH!=null&&s.seasonAB!=null)return s.seasonH+'/'+s.seasonAB;return'0/0';};
     const pitchContextKey=`${ls.inning||''}:${liveHalf||''}:${activePlay?.atBatIndex??'pending'}:${batterObj?.id||''}:${pitcherObj.id||''}`;
     if(pitchContextKey!==lastPitchContextKey){
         lastPitchContextKey=pitchContextKey;

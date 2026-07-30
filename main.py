@@ -932,6 +932,7 @@ def _process_play(play: dict) -> dict:
             "isComplete": about.get("isComplete"),
             "isScoringPlay": about.get("isScoringPlay"),
             "hasOut": about.get("hasOut"),
+            "outs": about.get("outs"),
         },
         "matchup": {
             "batter": {
@@ -1088,7 +1089,7 @@ def _process_feed(gamePk, data):
     between_innings = inning_state in ("Middle", "End")
     if between_innings:
         for _base_key in ("first", "second", "third"):
-            line_offense.pop(_base_key, None)
+            line_offense[_base_key] = None
     matchup_is_current = bool(
         play_batter.get("id")
         and (
