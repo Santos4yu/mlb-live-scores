@@ -102,6 +102,20 @@ async function loadGames(silent=false){
 function renderGames(games){
     const list=document.getElementById('gamesList');list.innerHTML='';document.getElementById('emptyState').style.display='none';
     if(!games||games.length===0){document.getElementById('emptyState').style.display='flex';return;}
+    games.sort((a,b)=>{
+        const aLive=a.status.abstract==='Live',bLive=b.status.abstract==='Live';
+        const aFinal=a.status.abstract==='Final',bFinal=b.status.abstract==='Final';
+        const aPreview=a.status.abstract==='Preview',bPreview=b.status.abstract==='Preview';
+        if(aLive&&!bLive)return-1;if(!aLive&&bLive)return1;
+        if(aLive&&bLive){
+            const aInn=(a.linescore.inning||0)+(a.linescore.isTopInning?0:0.5);
+            const bInn=(b.linescore.inning||0)+(b.linescore.isTopInning?0:0.5);
+            return aInn-bInn;
+        }
+        if(!aFinal&&!bFinal&&aPreview&&bPreview)return new Date(a.gameDate)-new Date(b.gameDate);
+        if(aFinal&&!bFinal)return1;if(!aFinal&&bFinal)return-1;
+        return new Date(a.gameDate)-new Date(b.gameDate);
+    });
     games.forEach(g=>{
         const aw=g.away,hm=g.home,ls=g.linescore,st=g.status;
         const isLive=st.abstract==='Live',isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed',isPreview=st.abstract==='Preview';
