@@ -15,7 +15,10 @@ CACHE_TTL = 15
 _client: httpx.AsyncClient | None = None
 logger = logging.getLogger("live-scores")
 
-LIVE_FEED_CHECK_SECONDS = max(0.15, float(os.environ.get("LIVE_FEED_CHECK_SECONDS", "0.25")))
+LIVE_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("LIVE_FEED_CHECK_SECONDS", "1.0")))
+HOT_FEED_TIMEOUT_SECONDS = max(
+    1.0, float(os.environ.get("HOT_FEED_TIMEOUT_SECONDS", "1.75"))
+)
 PREGAME_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("PREGAME_FEED_CHECK_SECONDS", "1")))
 FINAL_FEED_CHECK_SECONDS = max(5.0, float(os.environ.get("FINAL_FEED_CHECK_SECONDS", "15")))
 FEED_KEEPALIVE_SECONDS = 2
@@ -139,13 +142,24 @@ def _cache_buster() -> str:
     return str(time.time_ns())
 
 
+def _hot_cache_buster() -> str:
+    """Share duplicate checks while forcing a fresh CDN object each second."""
+    return str(int(time.time() / LIVE_FEED_CHECK_SECONDS))
+
+
 async def _fetch_hot_feed(game_pk: int) -> dict:
     """Fetch only pitch-critical fields while bypassing MLB's stale CDN cache."""
     client = await get_client()
-    response = await client.get(
-        FEED_URL.format(game_pk=game_pk),
-        params={"fields": HOT_FEED_FIELDS, "_": _cache_buster()},
-    )
+    async with asyncio.timeout(HOT_FEED_TIMEOUT_SECONDS):
+        response = await client.get(
+            FEED_URL.format(game_pk=game_pk),
+            params={"fields": HOT_FEED_FIELDS, "_": _hot_cache_buster()},
+            timeout=httpx.Timeout(
+                HOT_FEED_TIMEOUT_SECONDS,
+                connect=min(0.75, HOT_FEED_TIMEOUT_SECONDS),
+                pool=min(0.25, HOT_FEED_TIMEOUT_SECONDS),
+            ),
+        )
     response.raise_for_status()
     return response.json()
 
@@ -576,7 +590,9 @@ def _feed_poll_interval(state: FeedState) -> float:
     else:
         interval = PREGAME_FEED_CHECK_SECONDS
     if state.error_count:
-        interval = max(interval, min(4.0, LIVE_FEED_CHECK_SECONDS * (2 ** min(state.error_count, 4))))
+        # Keep recovery prompt after a transient origin failure. The dedicated
+        # hot-feed deadline already bounds request pressure during an outage.
+        interval = max(interval, min(1.0, LIVE_FEED_CHECK_SECONDS * 2))
     return interval
 
 
@@ -894,6 +910,15 @@ def _sse_message(revision: str, payload: str) -> str:
     return f"id: {revision}\nevent: feed\ndata: {payload}\n\n"
 
 
+def _feed_is_degraded(state: FeedState) -> bool:
+    if state.error_count:
+        return True
+    if not state.last_success_at:
+        return state.data is None
+    max_success_age = HOT_FEED_TIMEOUT_SECONDS + LIVE_FEED_CHECK_SECONDS + 0.5
+    return time.monotonic() - state.last_success_at > max_success_age
+
+
 @app.get("/api/game/{gamePk}/stream")
 async def stream_game_feed(gamePk: int, request: Request):
     """Push feed changes immediately; all viewers of a game share one MLB poller."""
@@ -931,7 +956,7 @@ async def stream_game_feed(gamePk: int, request: Request):
                         queue.get(), timeout=FEED_KEEPALIVE_SECONDS
                     )
                 except asyncio.TimeoutError:
-                    degraded = "true" if state.error_count else "false"
+                    degraded = "true" if _feed_is_degraded(state) else "false"
                     yield f'event: heartbeat\ndata: {{"degraded":{degraded}}}\n\n'
                     continue
                 if revision == last_revision:

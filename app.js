@@ -186,7 +186,18 @@ function startGameFeed(){
                 markFeedStreamAlive(session);
             }catch(e){console.error('Feed parse error:',e);}
         });
-        source.addEventListener('heartbeat',()=>markFeedStreamAlive(session));
+        source.addEventListener('heartbeat',event=>{
+            if(session!==feedSession)return;
+            let degraded=false;
+            try{degraded=Boolean(JSON.parse(event.data||'{}').degraded);}catch(e){}
+            if(degraded){
+                streamHasDelivered=false;
+                document.documentElement.dataset.feedTransport='recovering';
+                scheduleFallbackPoll(session,0);
+                return;
+            }
+            markFeedStreamAlive(session);
+        });
         source.addEventListener('feed-error',()=>{
             if(session!==feedSession)return;
             streamHasDelivered=false;

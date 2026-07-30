@@ -180,6 +180,17 @@ class ProcessFeedTests(unittest.TestCase):
             [(pitch["eventId"], pitch["call"]) for pitch in merged],
         )
 
+    def test_stream_health_detects_a_stalled_upstream_check(self):
+        state = main.FeedState(data={"status": {}})
+        state.last_success_at = (
+            main.time.monotonic()
+            - main.HOT_FEED_TIMEOUT_SECONDS
+            - main.LIVE_FEED_CHECK_SECONDS
+            - 1
+        )
+
+        self.assertTrue(main._feed_is_degraded(state))
+
 
 class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -256,6 +267,16 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(1, self.client.hot_calls)
         self.assertEqual(1, self.client.full_calls)
+
+    async def test_stalled_hot_request_has_a_short_hard_deadline(self):
+        original_timeout = main.HOT_FEED_TIMEOUT_SECONDS
+        main.HOT_FEED_TIMEOUT_SECONDS = 0.01
+        self.client.timestamp_delay = 0.1
+        try:
+            with self.assertRaises(TimeoutError):
+                await main._fetch_hot_feed(123)
+        finally:
+            main.HOT_FEED_TIMEOUT_SECONDS = original_timeout
 
     async def test_new_pitch_is_published_before_large_feed_finishes(self):
         state = await main._refresh_feed_if_changed(123, force_full=True)

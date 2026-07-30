@@ -8,3 +8,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: LIVE_FEED_CHECK_SECONDS
+        value: "1.0"
+      - key: HOT_FEED_TIMEOUT_SECONDS
+        value: "1.75"
