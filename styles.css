@@ -1280,7 +1280,7 @@ body {
 .sit-player-info { display: flex; flex-direction: column; }
 .sit-player-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
-.diamond-wrap { flex-shrink: 0; }
+.diamond-wrap { flex-shrink: 0; margin-top: 16px; }
 .base-avatar {
     width: 28px; height: 28px; border-radius: 50%;
     object-fit: cover; position: absolute;
