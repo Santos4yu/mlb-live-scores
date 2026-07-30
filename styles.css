@@ -1272,7 +1272,7 @@ body {
     gap: 16px;
     border-bottom: 1px solid var(--border);
 }
-.sit-bar-left { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.sit-bar-left { display: flex; flex-direction: column; gap: 8px; }
 .sit-row { display: flex; flex-direction: column; gap: 4px; }
 .sit-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .sit-player { display: flex; align-items: center; gap: 8px; }
@@ -1280,7 +1280,7 @@ body {
 .sit-player-info { display: flex; flex-direction: column; }
 .sit-player-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
-.diamond-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.diamond-wrap { flex-shrink: 0; }
 .base-avatar {
     width: 28px; height: 28px; border-radius: 50%;
     object-fit: cover; position: absolute;
