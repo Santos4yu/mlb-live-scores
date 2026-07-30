@@ -1267,7 +1267,7 @@ body {
 /* ── Situation Bar ─────────────────────────────────────────── */
 .sit-bar {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     padding: 14px 16px;
     gap: 16px;
     border-bottom: 1px solid var(--border);
@@ -1280,7 +1280,7 @@ body {
 .sit-player-info { display: flex; flex-direction: column; }
 .sit-player-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
-.diamond-wrap { flex-shrink: 0; display: flex; align-items: center; margin-top: auto; margin-bottom: auto; }
+.diamond-wrap { flex-shrink: 0; align-self: center; }
 .base-avatar {
     width: 28px; height: 28px; border-radius: 50%;
     object-fit: cover; position: absolute;
