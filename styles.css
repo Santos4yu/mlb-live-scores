@@ -726,12 +726,12 @@ body {
 }
 .diamond-large .base {
     position: absolute;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     transform: rotate(45deg);
     background: var(--text-muted);
     transition: all 0.3s;
-    border-radius: 5px;
+    border-radius: 6px;
     border: 2px solid var(--border);
     overflow: visible;
 }
@@ -1282,7 +1282,7 @@ body {
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
 .diamond-wrap { flex-shrink: 0; display: flex; align-items: center; margin-top: auto; margin-bottom: auto; }
 .base-avatar {
-    width: 24px; height: 24px; border-radius: 50%;
+    width: 28px; height: 28px; border-radius: 50%;
     object-fit: cover; position: absolute;
     top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg);
     border: 1.5px solid var(--border);
