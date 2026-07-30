@@ -13,6 +13,22 @@ let lastFeedVersion = null;
 let lastFeedOrder = 0;
 let teamsCache = {};
 let lastPlayIndex = -1;
+
+function toggleTheme(){
+    const html=document.documentElement;
+    const isDark=html.getAttribute('data-theme')!=='light';
+    html.setAttribute('data-theme',isDark?'light':'dark');
+    localStorage.setItem('theme',isDark?'light':'dark');
+    document.getElementById('themeIconDark').style.display=isDark?'none':'block';
+    document.getElementById('themeIconLight').style.display=isDark?'block':'none';
+}
+(function(){
+    const saved=localStorage.getItem('theme');
+    const useDark=saved!=='light';
+    document.documentElement.setAttribute('data-theme',useDark?'dark':'light');
+    if(document.getElementById('themeIconDark'))document.getElementById('themeIconDark').style.display=useDark?'block':'none';
+    if(document.getElementById('themeIconLight'))document.getElementById('themeIconLight').style.display=useDark?'none':'block';
+})();
 let lastAnimatedPitchEventId = null;
 let lastPitchContextKey = null;
 let lastActiveAtBatIndex = null;
@@ -771,7 +787,7 @@ function renderGameTab(data){
     const recent=feedPlays.slice(-20).reverse();
     const currentPlayCount=feedPlays.length;
     const outsMap=new Map();
-    {let track={};feedPlays.forEach(p=>{const k=`${p.about?.inning}:${p.about?.halfInning}`;if(!track[k])track[k]=0;outsMap.set(p,track[k]);if(p.about?.hasOut)track[k]++;});}
+    {let track={};feedPlays.forEach(p=>{const k=`${p.about?.inning}:${p.about?.halfInning}`;if(!track[k])track[k]=0;if(p.about?.hasOut)track[k]++;outsMap.set(p,track[k]);});}
     if(currentPlayCount>0){
         const newPlaysCount=lastPlayIndex>=0?Math.max(0,currentPlayCount-lastPlayIndex):1;
         html+=`<div class="play-feed-section">`;
