@@ -14,6 +14,7 @@ let lastFeedOrder = 0;
 let teamsCache = {};
 let lastPlayIndex = -1;
 let lastAnimatedPitchEventId = null;
+let lastPitchContextKey = null;
 const FEED_FALLBACK_MS = 500;
 const FEED_REQUEST_TIMEOUT_MS = 5000;
 const FEED_STREAM_TIMEOUT_MS = 5000;
@@ -78,7 +79,7 @@ function renderGames(games){
         const aw=g.away,hm=g.home,ls=g.linescore,st=g.status;
         const isLive=st.abstract==='Live',isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed',isPreview=st.abstract==='Preview';
         let inningText='';
-        if(isLive){const innN=ls.inning||'';const halfL=ls.inningState==='Middle'?'Mid':ls.isTopInning?'Top':'Bot';inningText=`${halfL} ${innN}`;}
+        if(isLive){const innN=ls.inning||'';const halfL=ls.inningState==='Middle'?'Mid':ls.inningState==='End'?'End':ls.isTopInning?'Top':'Bot';inningText=`${halfL} ${innN}`;}
         else if(isFinal){inningText='Final';if(ls.inning>9)inningText+=' / '+ls.inning;}
         else if(isDelayed)inningText='Delayed';
         else if(isPreview){const gt=new Date(g.gameDate);inningText=gt.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
@@ -117,7 +118,7 @@ function switchScreen(id){
 
 function openGameCenter(pk,away,home){
     stopGameFeed();
-    currentGamePk=pk;currentGame={away,home};activeTab='game';lastFeedData=null;lastFeedVersion=null;lastFeedOrder=0;lastPlayIndex=-1;lastAnimatedPitchEventId=null;switchScreen('app-gamecenter');
+    currentGamePk=pk;currentGame={away,home};activeTab='game';lastFeedData=null;lastFeedVersion=null;lastFeedOrder=0;lastPlayIndex=-1;lastAnimatedPitchEventId=null;lastPitchContextKey=null;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
     renderGCTabs(away,home);
     startGameFeed();
@@ -254,7 +255,7 @@ function renderGCHeader(data){
     let statusHtml='';
     if(isLive){
         const innNum=ls.inning||'';
-        const halfLabel=ls.inningState==='Middle'?'Mid':ls.isTopInning?'Top':'Bot';
+        const halfLabel=ls.inningState==='Middle'?'Mid':ls.inningState==='End'?'End':ls.isTopInning?'Top':'Bot';
         statusHtml=`<span class="gc-header-status live"><span class="live-dot"></span>${halfLabel} ${innNum}</span><span class="outs" style="color:var(--text-secondary);margin-left:6px">${ls.outs} out${ls.outs!==1?'s':''}</span>`;
     }
     else if(isFinal)statusHtml=`<span class="gc-header-status" style="color:var(--text-muted)">Final</span>`;
@@ -277,8 +278,24 @@ function renderGameTab(data){
     if(!panel){panel=document.createElement('div');panel.id='panel-game';panel.className='gc-panel active';container.appendChild(panel);}
 
     const ls=data.linescore,isLive=data.status?.abstractGameState==='Live',isFinal=data.status?.abstractGameState==='Final';
-    const aw=currentGame.away,hm=currentGame.home,offense=ls.offense||{};
-    const currentPlay=data.currentPlay,allEvents=currentPlay?.pitches||[];
+    const aw=currentGame.away,hm=currentGame.home,offense=ls.offense||{},defense=ls.defense||{};
+    const currentPlay=data.currentPlay;
+    const betweenInnings=ls.inningState==='Middle'||ls.inningState==='End';
+    const playBatter=currentPlay?.matchup?.batter;
+    const lineBatter=data.currentBatter?.id?data.currentBatter:offense.batter;
+    const sameBatter=!lineBatter?.id||!playBatter?.id||lineBatter.id===playBatter.id;
+    const playIsCurrent=data.currentPlayActive??Boolean(
+        currentPlay&&currentPlay.about?.isComplete!==true&&!betweenInnings&&sameBatter
+    );
+    const activePlay=playIsCurrent?currentPlay:null;
+    const batterObj=lineBatter?.id?lineBatter:(activePlay?.matchup?.batter||{});
+    const matchPitcher=activePlay?.matchup?.pitcher;
+    const pitcherObj=data.currentPitcher?.id
+        ?data.currentPitcher
+        :defense.pitcher?.id
+            ?defense.pitcher
+            :(matchPitcher?.id?matchPitcher:{});
+    const allEvents=activePlay?.pitches||[];
     const seen=new Set();
     const pitches=allEvents.filter(p=>{
         if(!p.isPitch)return false;
@@ -288,16 +305,20 @@ function renderGameTab(data){
         return true;
     });
     const lastPitch=pitches.length>0?pitches[pitches.length-1]:null;
-    const matchPitcher=currentPlay?.matchup?.pitcher;
     const offSide=offense.team?.id===aw.id?'away':'home',offBox=data.boxscore?.[offSide];
     const defSide=offSide==='away'?'home':'away',defBox=data.boxscore?.[defSide];
     const findB=id=>offBox?.batters?.find(b=>b.id===id),findP=id=>defBox?.pitchers?.find(p=>p.id===id);
-    const bStats=findB(offense.batter?.id);
-    const pitcherObj=matchPitcher?{id:matchPitcher.id,fullName:matchPitcher.fullName}:offense.pitcher||{};
+    const bStats=findB(batterObj?.id);
     const pStats=findP(pitcherObj.id);
     const odStats=findB(offense.onDeck?.id),ihStats=findB(offense.inHole?.id);
     const bSide=offense.batSide?.code||'',pSide=offense.pitchHand?.code||'';
     const avg=s=>{if(!s||s.ab===0)return'.000';return'.'+String(Math.round(s.h/s.ab*1000)).padStart(3,'0');};
+    const liveHalf=ls.inningHalf||(ls.isTopInning?'Top':'Bottom');
+    const pitchContextKey=`${ls.inning||''}:${liveHalf||''}:${activePlay?.atBatIndex??'pending'}:${batterObj?.id||''}:${pitcherObj.id||''}`;
+    if(pitchContextKey!==lastPitchContextKey){
+        lastPitchContextKey=pitchContextKey;
+        lastAnimatedPitchEventId=null;
+    }
     let html='';
 
     // Situation bar
@@ -313,11 +334,9 @@ function renderGameTab(data){
     }
 
     // Last pitch card
-    if(isLive&&pitches.length>0){
-        const lp=lastPitch,cls=getPitchClass(lp),bg=getPitchBg(cls);
-        const velo=lp.startSpeed?Math.round(lp.startSpeed):'';
-        const call=lp.call||lp.description||'';
-        const cb=lp.count?.balls??ls.balls,cs=lp.count?.strikes??ls.strikes;
+    if(isLive&&batterObj?.id){
+        const cb=lastPitch?.count?.balls??(playIsCurrent?ls.balls:0);
+        const cs=lastPitch?.count?.strikes??(playIsCurrent?ls.strikes:0);
         const ct=cb===0&&cs===0?'No balls, no strikes':cb===1&&cs===0?'1 ball, no strikes':cb===0&&cs===1?'No balls, 1 strike':`${cb} ball${cb!==1?'s':''}, ${cs} strike${cs!==1?'s':''}`;
         const visiblePitches=pitches.filter(p=>(p.px!=null&&p.pz!=null)||(p.x!=null&&p.y!=null));
         const pitchDots=visiblePitches.map((p,pi)=>{
@@ -334,14 +353,14 @@ function renderGameTab(data){
             const ptype=p.type||'';
             return`<div class="fpc-pitch-row"><span class="fpc-badge fpc-badge-sm" style="${pbg}">${p.pitchNumber}</span><div class="fpc-pitch-info"><span class="fpc-pitch-call">${p.call||p.description||''}</span><span class="fpc-pitch-detail">${ptype}${pvelo?' · '+pvelo:''}</span></div></div>`;
         }).join('');
-        const batterName=offense.batter?.fullName||'';
-        const pitcherName=pitcherObj.fullName||offense.pitcher?.fullName||'';
+        const batterName=batterObj.fullName||'';
+        const pitcherName=pitcherObj.fullName||'';
         const batterFirst=batterName.split(' ').pop()||'';
         const pitcherFirst=pitcherName.split(' ').pop()||'';
         html+=`<div class="feed-pitch-card">
             <div class="fpc-top">
                 <div class="fpc-avatar-stack">
-                    <img src="${playerHeadshotUrl(offense.batter?.id)}" alt="" class="fpc-avatar" onerror="this.style.display='none'">
+                    <img src="${playerHeadshotUrl(batterObj.id)}" alt="" class="fpc-avatar" onerror="this.style.display='none'">
                     <img src="${playerHeadshotUrl(pitcherObj.id)}" alt="" class="fpc-avatar fpc-avatar-pitcher" onerror="this.style.display='none'">
                 </div>
                 <div class="fpc-info"><div class="fpc-count">${ct}</div><div class="fpc-batter">${batterFirst} · ${bStats?bStats.h+'/'+bStats.ab:'0/0'}, ${avg(bStats)} (${bSide})</div><div class="fpc-pitcher">${pitcherFirst} · ${pStats?pStats.ip:'0'} ip, ${pStats?pStats.k:0} k, ${pitches.length} p (${pSide})</div></div></div>
@@ -350,13 +369,18 @@ function renderGameTab(data){
     }
 
     // Play-by-play
-    const plays=data.plays||[],recent=plays.slice(-20).reverse();
+    const playByKey=new Map();
+    (data.plays||[]).forEach((play,index)=>{
+        const key=play.atBatIndex!=null?`ab:${play.atBatIndex}`:`row:${index}`;
+        playByKey.set(key,play);
+    });
+    const plays=[...playByKey.values()],recent=plays.slice(-20).reverse();
     const currentPlayCount=recent.length;
     if(currentPlayCount>0){
         const newPlaysCount=lastPlayIndex>=0?Math.max(0,currentPlayCount-lastPlayIndex):1;
         html+=`<div class="play-feed-section">`;
         recent.forEach((p,idx)=>{
-            const res=p.result||'';if(!res)return;
+            const res=p.shortResult||p.result||'';if(!res)return;
             const bat=p.matchup?.batter?.fullName||'',pit=p.matchup?.pitcher?.fullName||'',bid=p.matchup?.batter?.id;
             const half=p.about?.halfInning||'',inn=p.about?.inning||'';
             const innTxt=half&&inn?(half==='top'?'▲ Top':'▼ Bot')+' '+inn:'';

@@ -74,6 +74,66 @@ def raw_feed(
     }
 
 
+def matchup_feed(
+    timestamp,
+    *,
+    at_bat_index,
+    play_batter,
+    play_pitcher,
+    line_batter=None,
+    defense_pitcher=None,
+    inning=3,
+    inning_state="Top",
+    inning_half="Top",
+    complete=False,
+    include_pitch=True,
+):
+    feed = raw_feed(timestamp, f"pitch-{at_bat_index}")
+    play = feed["liveData"]["plays"]["currentPlay"]
+    play["atBatIndex"] = at_bat_index
+    play["about"].update(
+        {
+            "inning": inning,
+            "halfInning": inning_half.lower(),
+            "isComplete": complete,
+        }
+    )
+    play["matchup"] = {
+        "batter": {"id": play_batter[0], "fullName": play_batter[1]},
+        "pitcher": {"id": play_pitcher[0], "fullName": play_pitcher[1]},
+    }
+    if not include_pitch:
+        play["playEvents"] = []
+    feed["liveData"]["linescore"] = {
+        "currentInning": inning,
+        "inningState": inning_state,
+        "inningHalf": inning_half,
+        "isTopInning": inning_half == "Top",
+        "balls": 0,
+        "strikes": 0,
+        "outs": 0 if not complete else 3,
+        "offense": {
+            "team": {"id": 111},
+            "batter": {
+                "id": (line_batter or play_batter)[0],
+                "fullName": (line_batter or play_batter)[1],
+            },
+        },
+        "defense": (
+            {
+                "team": {"id": 133},
+                "pitcher": {
+                    "id": (defense_pitcher or play_pitcher)[0],
+                    "fullName": (defense_pitcher or play_pitcher)[1],
+                },
+            }
+            if defense_pitcher is not False
+            else {}
+        ),
+    }
+    return feed
+
+
 class FakeResponse:
     def __init__(self, data):
         self._data = data
@@ -127,6 +187,20 @@ class FakeClient:
 
 
 class ProcessFeedTests(unittest.TestCase):
+    def test_forceout_description_is_short_and_position_specific(self):
+        short = main._short_play_result(
+            {
+                "eventType": "force_out",
+                "description": (
+                    "Jordan Walker grounds into a force out, fielded by third "
+                    "baseman Alex Bregman. Nathan Church scores. Lars Nootbaar "
+                    "out at 3rd."
+                ),
+            }
+        )
+
+        self.assertEqual("Grounded into forceout to third", short)
+
     def test_explicit_pitch_is_visible_before_richer_pitch_data(self):
         result = main._process_feed(123, raw_feed())
 
@@ -190,6 +264,86 @@ class ProcessFeedTests(unittest.TestCase):
         )
 
         self.assertTrue(main._feed_is_degraded(state))
+
+    def test_end_inning_uses_upcoming_batter_and_defensive_pitcher_together(self):
+        feed = matchup_feed(
+            "20260730_022107",
+            at_bat_index=19,
+            play_batter=(545361, "Old Batter"),
+            play_pitcher=(669713, "Old Pitcher"),
+            line_batter=(665161, "Jeremy Pena"),
+            defense_pitcher=(680570, "Grayson Rodriguez"),
+            inning=2,
+            inning_state="End",
+            inning_half="Bottom",
+            complete=True,
+        )
+
+        result = main._process_feed(824002, feed)
+
+        self.assertEqual(665161, result["currentBatter"]["id"])
+        self.assertEqual(680570, result["currentPitcher"]["id"])
+        self.assertEqual(
+            680570, result["linescore"]["defense"]["pitcher"]["id"]
+        )
+        self.assertFalse(result["currentPlayActive"])
+
+    def test_stale_completed_play_never_supplies_transition_pitcher(self):
+        feed = matchup_feed(
+            "20260730_022108",
+            at_bat_index=19,
+            play_batter=(545361, "Old Batter"),
+            play_pitcher=(669713, "Old Pitcher"),
+            line_batter=(665161, "Jeremy Pena"),
+            defense_pitcher=False,
+            inning=2,
+            inning_state="End",
+            inning_half="Bottom",
+            complete=True,
+        )
+
+        result = main._process_feed(824002, feed)
+
+        self.assertEqual(665161, result["currentBatter"]["id"])
+        self.assertEqual({}, result["currentPitcher"])
+        self.assertFalse(result["currentPlayActive"])
+
+    def test_new_zero_pitch_at_bat_replaces_old_zone_atomically(self):
+        old_feed = matchup_feed(
+            "20260730_022055",
+            at_bat_index=19,
+            play_batter=(545361, "Old Batter"),
+            play_pitcher=(669713, "Old Pitcher"),
+            inning=2,
+            inning_state="Bottom",
+            inning_half="Bottom",
+        )
+        next_feed = matchup_feed(
+            "20260730_022302",
+            at_bat_index=20,
+            play_batter=(665161, "Jeremy Pena"),
+            play_pitcher=(680570, "Grayson Rodriguez"),
+            inning=3,
+            inning_state="Top",
+            inning_half="Top",
+            include_pitch=False,
+        )
+        state = main.FeedState()
+        initial = main._process_feed(824002, old_feed)
+        state.hot_revision = main._hot_revision(initial)
+        main._store_processed_feed(state, initial, "hot")
+
+        main._merge_hot_feed(824002, state, next_feed)
+
+        self.assertEqual(20, state.data["currentPlay"]["atBatIndex"])
+        self.assertEqual([], state.data["currentPlay"]["pitches"])
+        self.assertEqual([], state.data["plays"][-1]["pitches"])
+        self.assertEqual(665161, state.data["currentBatter"]["id"])
+        self.assertEqual(680570, state.data["currentPitcher"]["id"])
+        self.assertTrue(state.data["currentPlayActive"])
+
+    def test_hot_projection_requests_linescore_defense(self):
+        self.assertIn("defense", main.HOT_FEED_FIELDS.split(","))
 
 
 class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):

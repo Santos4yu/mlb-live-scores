@@ -43,7 +43,7 @@ HOT_FEED_FIELDS = ",".join(
         "strikeZoneBottom", "count", "balls", "strikes", "outs",
         "linescore", "currentInning", "inningState", "inningHalf",
         "isTopInning", "currentInningOrdinal", "scheduledInnings",
-        "offense", "team", "onDeck", "inHole", "first", "second",
+        "offense", "defense", "team", "onDeck", "inHole", "first", "second",
         "third", "battingOrder", "teams", "away", "home", "runs",
         "hits", "errors",
     )
@@ -227,6 +227,7 @@ def _hot_revision(result: dict) -> str:
             for key in (
                 "status",
                 "currentPlay",
+                "currentPlayActive",
                 "linescore",
                 "currentBatter",
                 "currentPitcher",
@@ -257,6 +258,17 @@ def _prefer_hot(hot, cold):
     if hot is None or hot == "":
         return cold
     if isinstance(hot, dict) and isinstance(cold, dict):
+        for identity_key in ("atBatIndex", "eventId", "id"):
+            hot_identity = hot.get(identity_key)
+            cold_identity = cold.get(identity_key)
+            if (
+                hot_identity is not None
+                and cold_identity is not None
+                and hot_identity != cold_identity
+            ):
+                # This is a different at-bat, pitch, or player. Never fill its
+                # intentionally empty fields from the previous entity.
+                return hot
         return {
             key: _prefer_hot(hot[key], cold.get(key))
             if key in hot
@@ -318,7 +330,14 @@ def _hot_progress(result: dict) -> tuple[int, int, int, int]:
 
 def _overlay_hot_projection(base: dict, hot: dict) -> dict:
     merged = _feed_body(base)
-    for key in ("status", "currentPlay", "linescore", "currentBatter", "currentPitcher"):
+    for key in (
+        "status",
+        "currentPlay",
+        "currentPlayActive",
+        "linescore",
+        "currentBatter",
+        "currentPitcher",
+    ):
         if hot.get(key) is not None:
             merged[key] = _prefer_hot(hot[key], merged.get(key))
 
@@ -622,6 +641,64 @@ def _ensure_feed_poller(game_pk: int, state: FeedState) -> None:
             name=f"live-feed-{game_pk}",
         )
 
+
+def _short_play_result(result: dict) -> str:
+    event_type = str(result.get("eventType") or "").lower()
+    description = str(result.get("description") or "")
+    lowered = description.lower()
+    target = ""
+    for phrase, label in (
+        ("third baseman", "third"),
+        ("shortstop", "short"),
+        ("second baseman", "second"),
+        ("first baseman", "first"),
+        ("left fielder", "left"),
+        ("center fielder", "center"),
+        ("right fielder", "right"),
+        ("pitcher", "pitcher"),
+        ("catcher", "catcher"),
+    ):
+        if phrase in lowered:
+            target = f" to {label}"
+            break
+
+    if event_type == "force_out" or "grounds into a force out" in lowered:
+        return f"Grounded into forceout{target}"
+    if event_type in ("grounded_into_double_play", "double_play"):
+        return f"Grounded into double play{target}"
+    if event_type in ("groundout", "field_out") and "ground" in lowered:
+        return f"Grounded out{target}"
+    if event_type in ("flyout", "sac_fly") or "flies out" in lowered:
+        return (
+            f"Sacrifice fly{target}"
+            if event_type == "sac_fly"
+            else f"Flied out{target}"
+        )
+    if event_type == "lineout" or "lines out" in lowered:
+        return f"Lined out{target}"
+    if event_type in ("pop_out", "popout") or "pops out" in lowered:
+        return f"Popped out{target}"
+
+    simple_results = {
+        "strikeout": "Struck out",
+        "walk": "Walked",
+        "intent_walk": "Intentionally walked",
+        "hit_by_pitch": "Hit by pitch",
+        "single": "Singled",
+        "double": "Doubled",
+        "triple": "Tripled",
+        "home_run": "Homered",
+        "field_error": "Reached on error",
+        "fielders_choice": "Reached on fielder's choice",
+        "sac_bunt": "Sacrifice bunt",
+    }
+    if event_type in simple_results:
+        return simple_results[event_type]
+
+    first_sentence = description.split(".", 1)[0].strip()
+    return first_sentence[:80] if first_sentence else event_type.replace("_", " ").title()
+
+
 def _process_play(play: dict) -> dict:
     result = play.get("result", {})
     about = play.get("about", {})
@@ -629,6 +706,7 @@ def _process_play(play: dict) -> dict:
     play_obj = {
         "atBatIndex": play.get("atBatIndex"),
         "result": result.get("description", ""),
+        "shortResult": _short_play_result(result),
         "eventType": result.get("eventType", ""),
         "rbi": result.get("rbi", 0),
         "score": result.get("score", False),
@@ -776,12 +854,57 @@ def _process_feed(gamePk, data):
         return {"batters": batters, "pitchers": pitchers}
 
     cp_matchup = plays_data.get("currentPlay", {}).get("matchup", {})
+    line_offense = linescore_full.get("offense", {})
+    line_defense = linescore_full.get("defense", {})
+    offense_batter = line_offense.get("batter") or {}
+    play_batter = cp_matchup.get("batter") or {}
+    play_pitcher = cp_matchup.get("pitcher") or {}
+    inning_state = linescore_full.get("inningState")
+    between_innings = inning_state in ("Middle", "End")
+    matchup_is_current = bool(
+        play_batter.get("id")
+        and (
+            not offense_batter.get("id")
+            or play_batter.get("id") == offense_batter.get("id")
+        )
+    )
+    defense_pitcher = line_defense.get("pitcher") or {}
+    current_batter = (
+        offense_batter
+        if offense_batter.get("id")
+        else play_batter if not between_innings else {}
+    )
+    current_pitcher = (
+        defense_pitcher
+        if defense_pitcher.get("id")
+        else play_pitcher
+        if matchup_is_current and not between_innings and play_pitcher.get("id")
+        else {}
+    )
+    play_about = (raw_current_play or {}).get("about", {})
+    play_half = str(play_about.get("halfInning") or "").lower()
+    line_half = str(linescore_full.get("inningHalf") or "").lower()
+    play_inning = play_about.get("inning")
+    line_inning = linescore_full.get("currentInning")
+    current_play_active = bool(
+        raw_current_play
+        and not between_innings
+        and play_about.get("isComplete") is not True
+        and (
+            not offense_batter.get("id")
+            or not play_batter.get("id")
+            or offense_batter.get("id") == play_batter.get("id")
+        )
+        and (not play_half or not line_half or play_half == line_half)
+        and (not play_inning or not line_inning or play_inning == line_inning)
+    )
 
     return {
         "gamePk": gamePk,
         "status": data.get("gameData", {}).get("status", {}),
         "plays": all_plays,
         "currentPlay": current_play,
+        "currentPlayActive": current_play_active,
         "linescore": {
             "inning": linescore_full.get("currentInning"),
             "inningState": linescore_full.get("inningState"),
@@ -792,7 +915,8 @@ def _process_feed(gamePk, data):
             "strikes": linescore_full.get("strikes", 0),
             "inningOrdinal": linescore_full.get("currentInningOrdinal", ""),
             "scheduledInnings": linescore_full.get("scheduledInnings", 9),
-            "offense": linescore_full.get("offense", {}),
+            "offense": line_offense,
+            "defense": line_defense,
             "score": {
                 "away": linescore_full.get("teams", {}).get("away", {}).get("runs"),
                 "home": linescore_full.get("teams", {}).get("home", {}).get("runs"),
@@ -800,8 +924,8 @@ def _process_feed(gamePk, data):
         },
         "boxscore": {"away": parse_team_box(teams_box.get("away", {})), "home": parse_team_box(teams_box.get("home", {}))},
         "linescoreInnings": [{"num": inn.get("num"), "away": inn.get("away", {}), "home": inn.get("home", {})} for inn in linescore_full.get("innings", [])],
-        "currentBatter": cp_matchup.get("batter"),
-        "currentPitcher": cp_matchup.get("pitcher"),
+        "currentBatter": current_batter,
+        "currentPitcher": current_pitcher,
         "gameEvents": game_events,
     }
 
