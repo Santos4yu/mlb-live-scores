@@ -801,8 +801,17 @@ def _game_event_alert(play: dict, event: dict) -> dict | None:
     }
 
 
+def _extract_distance(play_events: list[dict]) -> int | None:
+    for ev in play_events:
+        hit_data = ev.get("hitData") or {}
+        dist = hit_data.get("totalDistance")
+        if dist:
+            return int(round(dist))
+    return None
+
+
 def _short_play_result(
-    result: dict, play_events: list[dict] | None = None
+    result: dict, play_events: list[dict] | None = None, distance: int | None = None
 ) -> str:
     event_type = str(result.get("eventType") or "").lower()
     description = str(result.get("description") or "")
@@ -810,7 +819,7 @@ def _short_play_result(
     rbi = result.get("rbi", 0) or 0
     rbi_prefix = ""
     if rbi == 1:
-        rbi_prefix = "1-run "
+        rbi_prefix = "solo "
     elif rbi == 2:
         rbi_prefix = "2-run "
     elif rbi == 3:
@@ -872,7 +881,7 @@ def _short_play_result(
         "single": f"{rbi_prefix}Singled{target}" if rbi else f"Singled{target}",
         "double": f"{rbi_prefix}Doubled{target}" if rbi else f"Doubled{target}",
         "triple": f"{rbi_prefix}Tripled{target}" if rbi else f"Tripled{target}",
-        "home_run": f"{rbi_prefix}Homered{target}" if rbi else f"Homered{target}",
+        "home_run": f"{rbi_prefix}{distance}' homer{target}" if distance else (f"{rbi_prefix}Homered{target}" if rbi else f"Homered{target}"),
         "field_error": "Reached on error",
         "fielders_choice": "Reached on fielder's choice",
         "sac_bunt": "Sacrifice bunt",
@@ -921,7 +930,8 @@ def _process_play(play: dict) -> dict:
     play_obj = {
         "atBatIndex": play.get("atBatIndex"),
         "result": display_result.get("description", ""),
-        "shortResult": _short_play_result(display_result, play_events),
+        "shortResult": _short_play_result(display_result, play_events, _extract_distance(play_events)),
+        "distance": _extract_distance(play_events),
         "resultType": result.get("type", ""),
         "eventType": display_result.get("eventType", ""),
         "rbi": display_result.get("rbi", 0),

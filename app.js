@@ -743,7 +743,6 @@ function renderGameTab(data){
             <div class="fpc-top">
                 <div class="fpc-avatar-stack">
                     <img src="${playerHeadshotUrl(displayBatter.id,160)}" alt="" class="fpc-avatar fpc-avatar-batter" onerror="this.style.display='none'">
-                    ${displayPitcher.id?`<img src="${playerHeadshotUrl(displayPitcher.id,128)}" alt="" class="fpc-avatar fpc-avatar-pitcher" onerror="this.style.display='none'">`:''}
                 </div>
                 <div class="fpc-info">
                     <div class="fpc-count">${ct}</div>
