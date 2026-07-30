@@ -716,7 +716,7 @@ function renderGameTab(data){
 
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
-function mapPitchMiniX(x){return Math.max(0,Math.min(150,((x+0.71)/1.42)*100+25));}
+function mapPitchMiniX(x){return Math.max(0,Math.min(150,((0.71-x)/1.42)*100+25));}
 function mapPitchMiniY(z,szTop,szBottom){var top=szTop||3.5,bot=szBottom||1.5,rng=top-bot||2.0;return Math.max(0,Math.min(180,((top-z)/rng)*125+15));}
 
 function getPitchClass(p){
