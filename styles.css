@@ -1217,7 +1217,7 @@ body {
 
 /* ── Mini Strike Zone (in pitch card) ─────────────────────── */
 .mini-sz-zone {
-    position: relative; width: 180px; height: 180px;
+    position: relative; width: 220px; height: 260px;
     background: rgba(10,10,20,0.8);
     border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
     flex-shrink: 0;
@@ -1225,7 +1225,7 @@ body {
 }
 .mini-sz-grid {
     position: absolute;
-    top: 40px; left: 55px; right: 55px; bottom: 40px;
+    top: 40px; left: 40px; right: 40px; bottom: 40px;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
     border: 1px solid rgba(255,255,255,0.2);
