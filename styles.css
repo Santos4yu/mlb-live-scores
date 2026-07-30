@@ -716,7 +716,7 @@ body {
 }
 .bso-dot.active-ball { background: var(--ball-color); box-shadow: 0 0 6px rgba(59,130,246,0.4); }
 .bso-dot.active-strike { background: var(--strike-color); box-shadow: 0 0 6px rgba(239,68,68,0.4); }
-.bso-dot.active-out { background: black; box-shadow: 0 0 6px rgba(0,0,0,0.3); }
+.bso-dot.active-out { background: var(--text-primary); box-shadow: 0 0 6px var(--accent-glow); }
 
 /* Diamond large */
 .diamond-large {
