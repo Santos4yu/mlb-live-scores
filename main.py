@@ -904,8 +904,9 @@ def _process_play(play: dict) -> dict:
     has_abs_challenge = False
     abs_resolved = False
     for _pe in play_events:
-        _pe_type = str((_pe.get("details") or {}).get("eventType") or "").lower()
-        _pe_desc = str(_pe.get("details") or {}).get("description", "").lower()
+        _pe_details = _pe.get("details") if isinstance(_pe.get("details"), dict) else {}
+        _pe_type = str(_pe_details.get("eventType") or "").lower()
+        _pe_desc = str(_pe_details.get("description") or "").lower()
         if _pe_type in ("abs_challenge", "strikeout_abs_challenge") or "abs challenge" in _pe_desc or "automated ball-strike" in _pe_desc:
             has_abs_challenge = True
         if has_abs_challenge and _pe.get("isChallengeable") is False:
