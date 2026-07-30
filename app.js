@@ -131,6 +131,9 @@ function renderGames(games){
         if(aFinal&&!bFinal)return1;if(!aFinal&&bFinal)return-1;
         return new Date(a.gameDate||0)-new Date(b.gameDate||0);
     });}catch(e){}
+    const liveCount=games.filter(g=>g.status?.abstract==='Live').length;
+    const mwBtn=document.getElementById('multiWatchBtn');
+    if(mwBtn)mwBtn.style.display=liveCount>=2?'inline-block':'none';
     games.forEach(g=>{
         const aw=g.away,hm=g.home,ls=g.linescore,st=g.status;
         const isLive=st.abstract==='Live',isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed',isPreview=st.abstract==='Preview';
@@ -140,7 +143,7 @@ function renderGames(games){
         else if(isDelayed)inningText='Delayed';
         else if(isPreview){const gt=new Date(g.gameDate);inningText=gt.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
         const awW=isFinal&&aw.score>hm.score,hmW=isFinal&&hm.score>aw.score;
-        const c=document.createElement('div');c.className='game-card'+(isLive?' live':'');
+        const c=document.createElement('div');c.className='game-card'+(isLive?' live':'');c.dataset.gamepk=g.gamePk;c.dataset.away=JSON.stringify(aw);c.dataset.home=JSON.stringify(hm);
         c.innerHTML=`
             <div class="gc-status"><span class="gc-inning ${isLive?'live':''} ${isFinal?'final':''} ${isDelayed?'status-delayed':''}">${inningText}</span></div>
             <div class="gc-team-row"><div class="gc-team-left">${teamLogoImg(aw.abbr,aw.id,24)}<div class="gc-team-info"><span class="team-abbr">${aw.abbr}</span><span class="team-name">${aw.name}</span></div></div><span class="gc-score ${awW?'winner':''} ${isFinal&&!awW?'loser':''}">${isPreview?'':(aw.score??'')}</span></div>
@@ -149,7 +152,7 @@ function renderGames(games){
             ${isDelayed?'<span style="font-size:10px;color:var(--live-yellow)">Weather delay</span>':''}
             ${(isPreview&&g.venue)?`<span style="font-size:10px;color:var(--text-muted)">${g.venue}</span>`:''}
         </div>`;
-        c.addEventListener('click',()=>openGameCenter(g.gamePk,aw,hm));list.appendChild(c);
+        c.addEventListener('click',()=>{if(!toggleMultiSelect(g.gamePk,c))openGameCenter(g.gamePk,aw,hm,st.abstract);});list.appendChild(c);
     });
 }
 function showLoading(){document.getElementById('loadingState').style.display='flex';document.getElementById('gamesList').innerHTML='';document.getElementById('emptyState').style.display='none';}
@@ -891,4 +894,125 @@ function renderTeamTab(data,side){
     html+=pitchers.map((p,i)=>`<div class="pitcher-card ${i===pitchers.length-1?'active':''}"><div class="pitcher-card-header"><div style="display:flex;align-items:center;gap:8px"><img src="${playerHeadshotUrl(p.id)}" alt="" class="player-headshot" onerror="this.style.display='none'"><span class="pitcher-name">${p.name}</span></div><span class="pitcher-status ${i===pitchers.length-1?'active':'previous'}">${i===pitchers.length-1?'Active':'Previous'}</span></div><div class="pitcher-stats"><div class="pitcher-stat"><span class="pitcher-stat-val">${p.ip}</span><span class="pitcher-stat-label">IP</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.h}</span><span class="pitcher-stat-label">H</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.r}</span><span class="pitcher-stat-label">R</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.er}</span><span class="pitcher-stat-label">ER</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.k}</span><span class="pitcher-stat-label">K</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.bb}</span><span class="pitcher-stat-label">BB</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.hr}</span><span class="pitcher-stat-label">HR</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.era}</span><span class="pitcher-stat-label">ERA</span></div><div class="pitcher-stat"><span class="pitcher-stat-val">${p.strk}</span><span class="pitcher-stat-label">STRK%</span></div></div></div>`).join('');
     html+=`</div>`;
     panel.innerHTML=html;
+}
+
+// ── MULTI-WATCH ──────────────────────────────────────────────
+let multiWatchGames=[];
+let multiWatchTimers={};
+let multiWatchData={};
+let multiWatchSelectMode=false;
+
+function openMultiWatchSelect(){
+    multiWatchGames=[];
+    multiWatchSelectMode=true;
+    const btn=document.getElementById('multiWatchBtn');
+    btn.textContent='Select 2-4 games';
+    btn.style.display='inline-block';
+    btn.onclick=null;
+    document.querySelectorAll('.game-card').forEach(c=>{c.classList.add('multi-selectable');});
+}
+
+function toggleMultiSelect(gamePk,cardEl){
+    if(!multiWatchSelectMode)return false;
+    const idx=multiWatchGames.findIndex(g=>g.gamePk===gamePk);
+    if(idx>=0){multiWatchGames.splice(idx,1);cardEl.classList.remove('multi-selected');}
+    else if(multiWatchGames.length<4){
+        const away=JSON.parse(cardEl.dataset.away||'{}');
+        const home=JSON.parse(cardEl.dataset.home||'{}');
+        multiWatchGames.push({gamePk,away,home});
+        cardEl.classList.add('multi-selected');
+    }
+    const btn=document.getElementById('multiWatchBtn');
+    if(multiWatchGames.length>=2){
+        btn.textContent=`Watch ${multiWatchGames.length} games`;
+        btn.onclick=startMultiWatch;
+    }else{
+        btn.textContent='Select 2-4 games';
+        btn.onclick=null;
+    }
+    return true;
+}
+
+function startMultiWatch(){
+    if(multiWatchGames.length<2)return;
+    multiWatchSelectMode=false;
+    document.querySelectorAll('.game-card').forEach(c=>{c.classList.remove('multi-selectable','multi-selected');});
+    document.getElementById('multiWatchBtn').style.display='none';
+    switchScreen('app-multiwatch');
+    stopSchedulePoll();
+    const grid=document.getElementById('multiwatchGrid');
+    grid.className='multiwatch-grid grid-'+multiWatchGames.length;
+    grid.innerHTML='';
+    multiWatchGames.forEach(g=>{
+        const div=document.createElement('div');
+        div.className='mw-panel';
+        div.id='mw-'+g.gamePk;
+        div.innerHTML='<div class="loading-state"><div class="spinner"></div></div>';
+        div.onclick=()=>{closeMultiWatch();openGameCenter(g.gamePk,g.away,g.home,'Live');};
+        grid.appendChild(div);
+        startMultiWatchFeed(g.gamePk);
+    });
+}
+
+async function startMultiWatchFeed(pk){
+    const render=async()=>{
+        try{
+            const r=await fetch(`${API}/api/game/${pk}/feed`);
+            if(!r.ok)return;
+            const d=await r.json();
+            multiWatchData[pk]=d;
+            renderMWPanel(pk,d);
+        }catch(e){}
+    };
+    await render();
+    multiWatchTimers[pk]=setInterval(render,1000);
+}
+
+function renderMWPanel(pk,data){
+    const el=document.getElementById('mw-'+pk);
+    if(!el)return;
+    const ls=data.linescore||{};
+    const st=data.status||{};
+    const isLive=st.abstractGameState==='Live';
+    const isFinal=st.abstractGameState==='Final';
+    const offense=ls.offense||{};
+    const defense=ls.defense||{};
+    const aw=currentGame?.away||{abbr:'Away',name:''};
+    const hm=currentGame?.home||{abbr:'Home',name:''};
+    const score=ls.score||{};
+    const halfLabel=ls.inningState==='Middle'?'Mid':ls.inningState==='End'?'End':ls.isTopInning?'Top':'Bot';
+    const innText=isLive?`${halfLabel} ${ls.inning||''}`:isFinal?'Final':'';
+    const awScore=score.away??'';
+    const hmScore=score.home??'';
+    const pitcherName=defense.pitcher?.fullName||'';
+    const batterName=offense.batter?.fullName||'';
+    let html=`<div class="mw-header">`;
+    html+=`<div class="mw-team"><span class="mw-abbr">${currentGame?.away?.abbr||''}</span><span class="mw-score">${awScore}</span></div>`;
+    html+=`<span class="mw-status">${innText}</span>`;
+    html+=`<div class="mw-team right"><span class="mw-score">${hmScore}</span><span class="mw-abbr">${currentGame?.home?.abbr||''}</span></div>`;
+    html+=`</div>`;
+    html+=`<div class="mw-bottom">`;
+    html+=`<div class="diamond" style="width:24px;height:24px">`;
+    html+=`<div class="diamond-base first ${offense.first?'occupied':''}" style="width:6px;height:6px"></div>`;
+    html+=`<div class="diamond-base second ${offense.second?'occupied':''}" style="width:6px;height:6px"></div>`;
+    html+=`<div class="diamond-base third ${offense.third?'occupied':''}" style="width:6px;height:6px"></div>`;
+    html+=`</div>`;
+    html+=`<div class="bso-dots" style="gap:4px">`;
+    html+=`<div class="bso-group"><div class="bso-circles">${[1,2,3,4].map(b=>`<div class="bso-circle" style="width:6px;height:6px ${b<=ls.balls?`;background:var(--ball-color)`:''}"></div>`).join('')}</div><span class="bso-label" style="font-size:8px">B</span></div>`;
+    html+=`<div class="bso-group"><div class="bso-circles">${[1,2,3].map(s=>`<div class="bso-circle" style="width:6px;height:6px ${s<=ls.strikes?`;background:var(--strike-color)`:''}"></div>`).join('')}</div><span class="bso-label" style="font-size:8px">S</span></div>`;
+    html+=`<div class="bso-group"><div class="bso-circles">${[1,2,3].map(o=>`<div class="bso-circle" style="width:6px;height:6px ${o<=ls.outs?`;background:var(--text-primary)`:''}"></div>`).join('')}</div><span class="bso-label" style="font-size:8px">O</span></div>`;
+    html+=`</div>`;
+    html+=`</div>`;
+    if(pitcherName)html+=`<div class="mw-pitcher">${pitcherName}</div>`;
+    el.innerHTML=html;
+}
+
+function closeMultiWatch(){
+    Object.keys(multiWatchTimers).forEach(pk=>{clearInterval(multiWatchTimers[pk]);delete multiWatchTimers[pk];});
+    multiWatchData={};
+    multiWatchSelectMode=false;
+    document.getElementById('multiwatchGrid').innerHTML='';
+    switchScreen('app-scores');
+    loadGames(true);
+    startSchedulePoll();
 }

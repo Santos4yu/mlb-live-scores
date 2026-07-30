@@ -1587,3 +1587,23 @@ body {
     .pitch-dot-new { will-change: auto; }
     .game-alert-toast { transition: none; }
 }
+
+/* Multi-Watch */
+.multiwatch-grid { display: grid; gap: 8px; padding: 8px; height: calc(100vh - 56px); }
+.grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.grid-3 .mw-panel:last-child { grid-column: 1 / -1; }
+.grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.mw-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color 0.2s; overflow: hidden; }
+.mw-panel:hover { border-color: var(--text-muted); }
+.mw-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mw-team { display: flex; align-items: center; gap: 6px; }
+.mw-team.right { flex-direction: row-reverse; }
+.mw-abbr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.mw-score { font-size: 22px; font-weight: 900; color: var(--text-primary); }
+.mw-status { font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: center; min-width: 60px; }
+.mw-bottom { display: flex; align-items: center; gap: 10px; }
+.mw-pitcher { font-size: 10px; color: var(--text-muted); margin-top: auto; }
+.multi-selectable { cursor: pointer; }
+.multi-selectable:hover { border-color: var(--accent); }
+.multi-selected { border: 2px solid var(--accent) !important; box-shadow: 0 0 12px var(--accent-glow); }
