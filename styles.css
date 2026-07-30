@@ -1225,7 +1225,7 @@ body {
 }
 .mini-sz-grid {
     position: absolute;
-    top: 25px; left: 25px; right: 25px; bottom: 25px;
+    top: 15px; left: 25px; right: 25px; bottom: 25px;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
     border: 1px solid rgba(255,255,255,0.2);
