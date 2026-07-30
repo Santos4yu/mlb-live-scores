@@ -98,13 +98,13 @@ async def get_schedule(date: str = Query(...)):
 async def get_game_feed(gamePk: int):
     cache_key = f"feed:{gamePk}"
     now = time.time()
-    if cache_key in _cache and now - _cache[cache_key][0] < 2:
+    if cache_key in _cache and now - _cache[cache_key][0] < 1:
         return _cache[cache_key][1]
 
     try:
         data = await cached_get(
             f"https://statsapi.mlb.com/api/v1.1/game/{gamePk}/feed/live",
-            ttl=2, timeout=25,
+            ttl=1, timeout=20,
         )
     except Exception:
         cached = _cache.get(cache_key)

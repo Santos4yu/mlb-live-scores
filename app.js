@@ -101,7 +101,7 @@ async function openGameCenter(pk,away,home){
     currentGamePk=pk;currentGame={away,home};lastPlayIndex=-1;lastAnimatedPitchEventId=null;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
     renderGCTabs(away,home);await loadGameFeed();
-    clearInterval(refreshTimer);refreshTimer=setInterval(loadGameFeed,1500);
+    clearInterval(refreshTimer);refreshTimer=setInterval(loadGameFeed,1000);
 }
 function renderGCTabs(away,home){document.getElementById('gcTabs').innerHTML=`<button class="gc-tab active" data-tab="game" onclick="showGCPanel('game')">Feed</button><button class="gc-tab" data-tab="away" onclick="showGCPanel('away')">${away.abbr}</button><button class="gc-tab" data-tab="home" onclick="showGCPanel('home')">${home.abbr}</button>`;}
 function showGCPanel(tab){
@@ -211,9 +211,9 @@ function renderGameTab(data){
         const pitchDots=visiblePitches.map((p,pi)=>{
             const pcls=getPitchClass(p);
             const px=p.px!=null?mapPitchMiniX(p.px):mapPitchMiniX(((p.x||125)-80)/90*1.7-0.85);
-            const py=p.pz!=null?mapPitchMiniY(p.pz):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
+            const py=p.pz!=null?mapPitchMiniY(p.pz,p.szTop,p.szBottom):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
             const isLatest=pi===visiblePitches.length-1;
-            return`<div class="mini-sz-dot ${pcls}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" data-latest="${isLatest}" style="left:${isLatest?75:px}px;top:${isLatest?90:py}px;${isLatest?'opacity:0':''}">${p.pitchNumber||''}</div>`;
+            return`<div class="mini-sz-dot ${pcls}${isLatest?' pitch-dot-new':''}" data-x="${px}" data-y="${py}" data-eid="${p.eventId||pi}" style="left:${px}px;top:${py}px;">${p.pitchNumber||''}</div>`;
         }).join('');
         const pitchList=pitches.slice().reverse().map((p,pi)=>{
             const pcls=getPitchClass(p);
@@ -295,7 +295,7 @@ function renderGameTab(data){
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
 function mapPitchMiniX(x){return Math.max(0,Math.min(150,((x+0.71)/1.42)*100+25));}
-function mapPitchMiniY(z){return Math.max(0,Math.min(180,((3.5-z)/2.0)*130+25));}
+function mapPitchMiniY(z,szTop,szBottom){var top=szTop||3.5,bot=szBottom||1.5,rng=top-bot||2.0;return Math.max(0,Math.min(180,((top-z)/rng)*130+25));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
@@ -312,32 +312,18 @@ function getPitchBg(c){
 }
 
 function animateLatestPitch(){
-    const dot=document.querySelector('.mini-sz-dot[data-latest="true"]');
+    const dot=document.querySelector('.pitch-dot-new');
     if(!dot)return;
     const eid=dot.dataset.eid;
-    if(eid===lastAnimatedPitchEventId){dot.style.left=dot.dataset.x+'px';dot.style.top=dot.dataset.y+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';dot.removeAttribute('data-latest');return;}
+    if(eid===lastAnimatedPitchEventId){dot.classList.remove('pitch-dot-new');return;}
     lastAnimatedPitchEventId=eid;
-    const targetX=parseFloat(dot.dataset.x),targetY=parseFloat(dot.dataset.y);
-    const startX=75,startY=90;
-    const duration=300;
-    let start=null;
-    function step(ts){
-        if(!start)start=ts;
-        const elapsed=ts-start;
-        const t=Math.min(elapsed/duration,1);
-        const ease=1-Math.pow(1-t,3);
-        const cx=startX+(targetX-startX)*ease;
-        const cy=startY+(targetY-startY)*ease;
-        const scale=0.3+0.7*ease;
-        const opacity=t<0.1?t/0.1:1;
-        dot.style.left=cx+'px';
-        dot.style.top=cy+'px';
-        dot.style.opacity=opacity;
-        dot.style.transform=`translate(-50%,-50%) scale(${scale})`;
-        if(t<1)requestAnimationFrame(step);
-        else{dot.style.transform='translate(-50%,-50%) scale(1)';dot.removeAttribute('data-latest');}
-    }
-    requestAnimationFrame(step);
+    const tx=dot.dataset.x,ty=dot.dataset.y;
+    dot.style.left='75px';dot.style.top='90px';dot.style.opacity='0';dot.style.transform='translate(-50%,-50%) scale(0.3)';
+    requestAnimationFrame(()=>{requestAnimationFrame(()=>{
+        dot.style.transition='left 0.25s cubic-bezier(.4,0,.2,1), top 0.25s cubic-bezier(.4,0,.2,1), opacity 0.15s, transform 0.25s cubic-bezier(.4,0,.2,1)';
+        dot.style.left=tx+'px';dot.style.top=ty+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';
+        setTimeout(()=>{dot.style.transition='';dot.classList.remove('pitch-dot-new');},300);
+    });});
 }
 
 // ── TEAM TABS ─────────────────────────────────────────────────

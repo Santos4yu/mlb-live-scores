@@ -1369,3 +1369,6 @@ body {
 .mini-sz-dot {
     will-change: left, top, transform, opacity;
 }
+.pitch-dot-new {
+    will-change: left, top, transform, opacity;
+}
