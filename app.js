@@ -13,6 +13,7 @@ let lastFeedVersion = null;
 let lastFeedOrder = 0;
 let teamsCache = {};
 let lastPlayIndex = -1;
+let lineupData = null;
 
 function toggleTheme(){
     const html=document.documentElement;
@@ -175,7 +176,7 @@ function switchScreen(id){
 function openGameCenter(pk,away,home,status){
     stopGameFeed();stopSchedulePoll();
     resetTransientAlerts();
-    currentGamePk=pk;currentGame={away,home};activeTab='game';lastFeedData=null;lastFeedVersion=null;lastFeedOrder=0;lastPlayIndex=-1;lastAnimatedPitchEventId=null;lastPitchContextKey=null;lastActiveAtBatIndex=null;activePlayAheadOfLinescore=false;switchScreen('app-gamecenter');
+    currentGamePk=pk;currentGame={away,home};activeTab='game';lastFeedData=null;lastFeedVersion=null;lastFeedOrder=0;lastPlayIndex=-1;lastAnimatedPitchEventId=null;lastPitchContextKey=null;lastActiveAtBatIndex=null;activePlayAheadOfLinescore=false;lineupData=null;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
     renderGCTabs(away,home);
     if(status==='Preview'){
@@ -189,19 +190,15 @@ async function loadLineupPreview(pk,away,home){
     try{
         const r=await fetch(`${API}/api/game/${pk}/lineup`);
         const d=await r.json();
-        renderLineupPreview(d,away,home);
-    }catch(e){
-        document.getElementById('gcContent').innerHTML='<div class="empty-state"><p>Lineups not available yet</p></div>';
-    }
-}
-
-function renderLineupPreview(data,away,home){
-    const container=document.getElementById('gcContent');
-    const isPreview=data.status==='Preview';
-    const pp=data.probablePitchers||{};
-    let html='';
-    if(isPreview){
-        html+=`<div class="lineup-preview">`;
+        lineupData=d;
+        const container=document.getElementById('gcContent');
+        const pp=d.probablePitchers||{};
+        const isPreview=d.status==='Preview';
+        if(!isPreview){
+            startGameFeed();
+            return;
+        }
+        let html=`<div class="lineup-preview">`;
         html+=`<div class="lineup-section"><div class="lineup-header">${teamLogoImg(away.abbr,away.id,28)} <span>${away.name} probable pitcher</span></div>`;
         if(pp.away)html+=`<div class="lineup-pitcher"><img src="${playerHeadshotUrl(pp.away.id,120)}" alt="" class="lineup-pitcher-img" onerror="this.style.display='none'"><div class="lineup-pitcher-info"><span class="lineup-pitcher-name">${pp.away.fullName}</span><span class="lineup-pitcher-num">#${pp.away.number}</span></div></div>`;
         else html+=`<div class="lineup-tbd">TBD</div>`;
@@ -210,7 +207,7 @@ function renderLineupPreview(data,away,home){
         if(pp.home)html+=`<div class="lineup-pitcher"><img src="${playerHeadshotUrl(pp.home.id,120)}" alt="" class="lineup-pitcher-img" onerror="this.style.display='none'"><div class="lineup-pitcher-info"><span class="lineup-pitcher-name">${pp.home.fullName}</span><span class="lineup-pitcher-num">#${pp.home.number}</span></div></div>`;
         else html+=`<div class="lineup-tbd">TBD</div>`;
         html+=`</div>`;
-        const renderLineup=(lineup,team,teamData)=>{
+        const renderLineupTable=(lineup,teamData)=>{
             if(!lineup.length)return'';
             let h=`<div class="lineup-section"><div class="lineup-header">${teamLogoImg(teamData.abbr,teamData.id,28)} <span>${teamData.name} batting order</span></div>`;
             h+=`<table class="lineup-table"><thead><tr><th>#</th><th>Player</th><th>Pos</th><th>AVG</th></tr></thead><tbody>`;
@@ -220,11 +217,13 @@ function renderLineupPreview(data,away,home){
             h+=`</tbody></table></div>`;
             return h;
         };
-        html+=renderLineup(data.lineups?.away||[],'away',away);
-        html+=renderLineup(data.lineups?.home||[],'home',home);
+        html+=renderLineupTable(d.lineups?.away||[],away);
+        html+=renderLineupTable(d.lineups?.home||[],home);
         html+=`</div>`;
+        container.innerHTML=html;
+    }catch(e){
+        document.getElementById('gcContent').innerHTML='<div class="empty-state"><p>Lineups not available yet</p></div>';
     }
-    container.innerHTML=html||'<div class="empty-state"><p>Lineups not available yet</p></div>';
 }
 function renderGCTabs(away,home){document.getElementById('gcTabs').innerHTML=`<button class="gc-tab active" data-tab="game" onclick="showGCPanel('game')">Feed</button><button class="gc-tab" data-tab="away" onclick="showGCPanel('away')">${away.abbr}</button><button class="gc-tab" data-tab="home" onclick="showGCPanel('home')">${home.abbr}</button>`;}
 function toggleGCPanel(tab){
@@ -927,9 +926,31 @@ function animateLatestPitch(){
 // ── TEAM TABS ─────────────────────────────────────────────────
 function renderTeamTab(data,side){
     const container=document.getElementById('gcContent'),team=currentGame[side],box=data.boxscore?.[side];
-    if(!box)return;
     let panel=document.getElementById('panel-'+side);
     if(!panel){panel=document.createElement('div');panel.id='panel-'+side;panel.className='gc-panel';container.appendChild(panel);}
+
+    if(lineupData&&lineupData.status==='Preview'){
+        const pp=lineupData.probablePitchers?.[side];
+        const lineup=lineupData.lineups?.[side]||[];
+        let html=`<div class="lineup-preview" style="padding:12px">`;
+        html+=`<div class="lineup-section"><div class="lineup-header">${teamLogoImg(team.abbr,team.id,28)} <span>Probable Pitcher</span></div>`;
+        if(pp)html+=`<div class="lineup-pitcher"><img src="${playerHeadshotUrl(pp.id,120)}" alt="" class="lineup-pitcher-img" onerror="this.style.display='none'"><div class="lineup-pitcher-info"><span class="lineup-pitcher-name">${pp.fullName}</span><span class="lineup-pitcher-num">#${pp.number}</span></div></div>`;
+        else html+=`<div class="lineup-tbd">TBD</div>`;
+        html+=`</div>`;
+        if(lineup.length){
+            html+=`<div class="lineup-section"><div class="lineup-header">Batting Order</div>`;
+            html+=`<table class="lineup-table"><thead><tr><th>#</th><th>Player</th><th>Pos</th><th>AVG</th></tr></thead><tbody>`;
+            lineup.forEach(p=>{
+                html+=`<tr><td>${p.order}</td><td><div class="lineup-player"><img src="${playerHeadshotUrl(p.id,40)}" alt="" class="lineup-player-img" onerror="this.style.display='none'"><span>${p.name}</span></div></td><td>${p.position}</td><td>${p.avg}</td></tr>`;
+            });
+            html+=`</tbody></table></div>`;
+        }
+        html+=`</div>`;
+        panel.innerHTML=html;
+        return;
+    }
+
+    if(!box)return;
     const batters=box.batters||[],pitchers=box.pitchers||[];
     let html=`<div class="game-tab-section"><h3>${team.abbr} Batting</h3><div style="overflow-x:auto"><table class="lineup-table"><thead><tr><th>#</th><th style="text-align:left">Player</th><th>AB</th><th>H</th><th>R</th><th>RBI</th><th>SO</th><th>BB</th><th>HR</th><th>TB</th><th>SB</th></tr></thead><tbody>`;
     html+=batters.map(b=>`<tr><td><span class="lineup-num">${b.battingOrder?Math.floor(b.battingOrder/100):''}</span></td><td><div class="player-cell"><img src="${playerHeadshotUrl(b.id)}" alt="" class="lineup-headshot" onerror="this.style.display='none'"><span class="lineup-player-name">${b.name}</span><span class="lineup-pos">${b.position}</span></div></td><td>${b.ab}</td><td>${b.h}</td><td>${b.r}</td><td>${b.rbi}</td><td class="${b.so>0?'lineup-so':''}">${b.so}</td><td>${b.bb}</td><td class="${b.hr>0?'lineup-hr':''}">${b.hr}</td><td>${b.tb}</td><td>${b.sb}</td></tr>`).join('');
