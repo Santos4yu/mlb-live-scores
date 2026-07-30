@@ -4,9 +4,19 @@ let currentGame = null;
 let currentGamePk = null;
 let activeTab = 'game';
 let refreshTimer = null;
+let feedStream = null;
+let feedStreamWatchdog = null;
+let feedRequest = null;
+let feedSession = 0;
+let streamHasDelivered = false;
+let lastFeedVersion = null;
+let lastFeedOrder = 0;
 let teamsCache = {};
 let lastPlayIndex = -1;
 let lastAnimatedPitchEventId = null;
+const FEED_FALLBACK_MS = 500;
+const FEED_REQUEST_TIMEOUT_MS = 5000;
+const FEED_STREAM_TIMEOUT_MS = 5000;
 
 const TEAM_COLORS = {
     ARI:{c:'#A71930',id:109},ATL:{c:'#CE1141',id:144},BAL:{c:'#DF4601',id:110},
@@ -33,6 +43,10 @@ function teamLogoImg(a,id,s){
 document.addEventListener('DOMContentLoaded',async()=>{
     await loadTeams();renderDatePicker();loadGames();
     document.getElementById('standingsBtn').addEventListener('click',showStandings);
+});
+document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){stopGameFeed();return;}
+    if(currentGamePk)startGameFeed();
 });
 async function loadTeams(){try{const r=await fetch(`${API}/api/teams`);teamsCache=await r.json();}catch(e){}}
 
@@ -95,50 +109,137 @@ async function showStandings(){
 }
 function showScores(){switchScreen('app-scores');}
 
-function switchScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='app-gamecenter'){clearInterval(refreshTimer);refreshTimer=null;}}
+function switchScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if(id!=='app-gamecenter')stopGameFeed();
+}
 
-async function openGameCenter(pk,away,home){
-    currentGamePk=pk;currentGame={away,home};lastPlayIndex=-1;lastAnimatedPitchEventId=null;switchScreen('app-gamecenter');
+function openGameCenter(pk,away,home){
+    stopGameFeed();
+    currentGamePk=pk;currentGame={away,home};activeTab='game';lastFeedData=null;lastFeedVersion=null;lastFeedOrder=0;lastPlayIndex=-1;lastAnimatedPitchEventId=null;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
-    renderGCTabs(away,home);await loadGameFeed();
-    clearInterval(refreshTimer);refreshTimer=setInterval(loadGameFeed,1000);
+    renderGCTabs(away,home);
+    startGameFeed();
 }
 function renderGCTabs(away,home){document.getElementById('gcTabs').innerHTML=`<button class="gc-tab active" data-tab="game" onclick="showGCPanel('game')">Feed</button><button class="gc-tab" data-tab="away" onclick="showGCPanel('away')">${away.abbr}</button><button class="gc-tab" data-tab="home" onclick="showGCPanel('home')">${home.abbr}</button>`;}
-function showGCPanel(tab){
-    activeTab=tab;
+function toggleGCPanel(tab){
     document.querySelectorAll('.gc-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
     document.querySelectorAll('.gc-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+}
+function showGCPanel(tab){
+    activeTab=tab;
     if(lastFeedData){
         if(tab==='game')renderGameTab(lastFeedData);
         else if(tab==='away')renderTeamTab(lastFeedData,'away');
         else if(tab==='home')renderTeamTab(lastFeedData,'home');
     }
+    toggleGCPanel(tab);
 }
-function closeGameCenter(){clearInterval(refreshTimer);refreshTimer=null;currentGamePk=null;switchScreen('app-scores');}
+function closeGameCenter(){currentGamePk=null;switchScreen('app-scores');}
 
 let lastFeedData=null;
-async function loadGameFeed(){
-    if(!currentGamePk)return;
-    try{const r=await fetch(`/api/game/${currentGamePk}/feed`);
+function stopGameFeed(){
+    feedSession++;
+    streamHasDelivered=false;
+    delete document.documentElement.dataset.feedTransport;
+    delete document.documentElement.dataset.feedVersion;
+    if(feedStream){feedStream.close();feedStream=null;}
+    if(feedStreamWatchdog!==null){clearTimeout(feedStreamWatchdog);feedStreamWatchdog=null;}
+    if(refreshTimer!==null){clearTimeout(refreshTimer);refreshTimer=null;}
+    if(feedRequest){feedRequest.controller.abort();feedRequest=null;}
+}
+function markFeedStreamAlive(session){
+    if(session!==feedSession)return;
+    streamHasDelivered=true;
+    document.documentElement.dataset.feedTransport='stream';
+    if(refreshTimer!==null){clearTimeout(refreshTimer);refreshTimer=null;}
+    if(feedRequest?.session===session){feedRequest.controller.abort();feedRequest=null;}
+    if(feedStreamWatchdog!==null)clearTimeout(feedStreamWatchdog);
+    feedStreamWatchdog=setTimeout(()=>{
+        if(session!==feedSession)return;
+        streamHasDelivered=false;
+        scheduleFallbackPoll(session,0);
+    },FEED_STREAM_TIMEOUT_MS);
+}
+function scheduleFallbackPoll(session,delay=FEED_FALLBACK_MS){
+    if(document.hidden||session!==feedSession||!currentGamePk||streamHasDelivered||refreshTimer!==null)return;
+    refreshTimer=setTimeout(async()=>{
+        refreshTimer=null;
+        document.documentElement.dataset.feedTransport='polling';
+        await loadGameFeed(session);
+        scheduleFallbackPoll(session);
+    },delay);
+}
+function startGameFeed(){
+    const session=feedSession,pk=currentGamePk;
+    if(document.hidden||!pk)return;
+    document.documentElement.dataset.feedTransport='connecting';
+    if('EventSource'in window){
+        const source=new EventSource(`/api/game/${pk}/stream`);
+        feedStream=source;
+        source.addEventListener('feed',event=>{
+            if(session!==feedSession||pk!==currentGamePk)return;
+            try{
+                const data=JSON.parse(event.data);
+                applyGameFeed(data,session);
+                markFeedStreamAlive(session);
+            }catch(e){console.error('Feed parse error:',e);}
+        });
+        source.addEventListener('heartbeat',()=>markFeedStreamAlive(session));
+        source.addEventListener('feed-error',()=>{
+            if(session!==feedSession)return;
+            streamHasDelivered=false;
+            scheduleFallbackPoll(session,0);
+        });
+        source.onerror=()=>{
+            if(session!==feedSession)return;
+            streamHasDelivered=false;
+            scheduleFallbackPoll(session,0);
+        };
+    }
+    // Start one request immediately as both a fast first paint and an SSE fallback.
+    scheduleFallbackPoll(session,0);
+}
+async function loadGameFeed(session=feedSession){
+    if(document.hidden||session!==feedSession||!currentGamePk)return;
+    if(feedRequest?.session===session)return;
+    if(feedRequest)feedRequest.controller.abort();
+    const pk=currentGamePk,controller=new AbortController(),request={session,controller};
+    request.timeout=setTimeout(()=>controller.abort(),FEED_REQUEST_TIMEOUT_MS);
+    feedRequest=request;
+    try{const r=await fetch(`/api/game/${pk}/feed`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
     if(!r.ok)throw new Error(r.status);
     const d=await r.json();
+    if(session!==feedSession||pk!==currentGamePk)return;
+    applyGameFeed(d,session);}
+    catch(e){if(e.name!=='AbortError')console.error('Feed error:',e);}
+    finally{clearTimeout(request.timeout);if(feedRequest===request)feedRequest=null;}
+}
+function applyGameFeed(d,session=feedSession){
+    if(session!==feedSession||!currentGamePk||d.error)return false;
+    const feedOrder=Number(d.feedOrder)||0;
+    if(feedOrder&&feedOrder<=lastFeedOrder&&d.feedVersion!==lastFeedVersion)return false;
+    if(d.feedVersion&&d.feedVersion===lastFeedVersion)return true;
+    if(feedOrder)lastFeedOrder=feedOrder;
+    lastFeedVersion=d.feedVersion||null;
+    if(d.feedVersion)document.documentElement.dataset.feedVersion=d.feedVersion;
     const loader=document.getElementById('gcLoader');
     if(loader)loader.remove();
-    if(d.error){console.error('Feed error:',d.error);return;}
     lastFeedData=d;
     renderGCHeader(d);
     if(activeTab==='game')renderGameTab(d);
     else if(activeTab==='away')renderTeamTab(d,'away');
     else if(activeTab==='home')renderTeamTab(d,'home');
-    showGCPanel(activeTab);}
-    catch(e){console.error('Feed error:',e);}
+    toggleGCPanel(activeTab);
+    return true;
 }
 
 function renderGCHeader(data){
     const aw=currentGame.away,hm=currentGame.home,ls=data.linescore,st=data.status;
     const isLive=st?.abstractGameState==='Live',isFinal=st?.abstractGameState==='Final';
-    const awS=data.boxscore?.away?.batters?calcScore(data.boxscore.away):'?';
-    const hmS=data.boxscore?.home?.batters?calcScore(data.boxscore.home):'?';
+    const awS=ls.score?.away??(data.boxscore?.away?.batters?calcScore(data.boxscore.away):'?');
+    const hmS=ls.score?.home??(data.boxscore?.home?.batters?calcScore(data.boxscore.home):'?');
     let statusHtml='';
     if(isLive){
         const innNum=ls.inning||'';
@@ -317,13 +418,7 @@ function animateLatestPitch(){
     const eid=dot.dataset.eid;
     if(eid===lastAnimatedPitchEventId){dot.classList.remove('pitch-dot-new');return;}
     lastAnimatedPitchEventId=eid;
-    const tx=dot.dataset.x,ty=dot.dataset.y;
-    dot.style.left='75px';dot.style.top='78px';dot.style.opacity='0';dot.style.transform='translate(-50%,-50%) scale(0.3)';
-    requestAnimationFrame(()=>{requestAnimationFrame(()=>{
-        dot.style.transition='left 0.25s cubic-bezier(.4,0,.2,1), top 0.25s cubic-bezier(.4,0,.2,1), opacity 0.15s, transform 0.25s cubic-bezier(.4,0,.2,1)';
-        dot.style.left=tx+'px';dot.style.top=ty+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';
-        setTimeout(()=>{dot.style.transition='';dot.classList.remove('pitch-dot-new');},300);
-    });});
+    setTimeout(()=>dot.classList.remove('pitch-dot-new'),100);
 }
 
 // ── TEAM TABS ─────────────────────────────────────────────────
