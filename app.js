@@ -295,7 +295,7 @@ function renderGameTab(data){
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
 function mapPitchMiniX(x){return Math.max(0,Math.min(150,((x+0.71)/1.42)*100+25));}
-function mapPitchMiniY(z,szTop,szBottom){var top=szTop||3.5,bot=szBottom||1.5,rng=top-bot||2.0;return Math.max(0,Math.min(180,((top-z)/rng)*130+25));}
+function mapPitchMiniY(z,szTop,szBottom){var top=szTop||3.5,bot=szBottom||1.5,rng=top-bot||2.0;return Math.max(0,Math.min(180,((top-z)/rng)*125+15));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
@@ -318,7 +318,7 @@ function animateLatestPitch(){
     if(eid===lastAnimatedPitchEventId){dot.classList.remove('pitch-dot-new');return;}
     lastAnimatedPitchEventId=eid;
     const tx=dot.dataset.x,ty=dot.dataset.y;
-    dot.style.left='75px';dot.style.top='90px';dot.style.opacity='0';dot.style.transform='translate(-50%,-50%) scale(0.3)';
+    dot.style.left='75px';dot.style.top='78px';dot.style.opacity='0';dot.style.transform='translate(-50%,-50%) scale(0.3)';
     requestAnimationFrame(()=>{requestAnimationFrame(()=>{
         dot.style.transition='left 0.25s cubic-bezier(.4,0,.2,1), top 0.25s cubic-bezier(.4,0,.2,1), opacity 0.15s, transform 0.25s cubic-bezier(.4,0,.2,1)';
         dot.style.left=tx+'px';dot.style.top=ty+'px';dot.style.opacity='1';dot.style.transform='translate(-50%,-50%) scale(1)';
