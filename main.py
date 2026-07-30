@@ -1079,15 +1079,15 @@ def _process_feed(gamePk, data):
     line_offense = dict(linescore_full.get("offense", {}))
     for _base_key in ("first", "second", "third"):
         line_offense.setdefault(_base_key, line_offense.get(_base_key))
-    if between_innings:
-        for _base_key in ("first", "second", "third"):
-            line_offense.pop(_base_key, None)
     line_defense = linescore_full.get("defense", {})
     offense_batter = line_offense.get("batter") or {}
     play_batter = cp_matchup.get("batter") or {}
     play_pitcher = cp_matchup.get("pitcher") or {}
     inning_state = linescore_full.get("inningState")
     between_innings = inning_state in ("Middle", "End")
+    if between_innings:
+        for _base_key in ("first", "second", "third"):
+            line_offense.pop(_base_key, None)
     matchup_is_current = bool(
         play_batter.get("id")
         and (
