@@ -721,9 +721,8 @@ body {
 /* Diamond large */
 .diamond-large {
     position: relative;
-    width: 120px;
-    height: 120px;
-    margin: 0 auto;
+    width: 110px;
+    height: 110px;
 }
 .diamond-large .base {
     position: absolute;
@@ -740,9 +739,9 @@ body {
     background: var(--text-muted);
     box-shadow: 0 0 10px rgba(150,150,150,0.25);
 }
-.diamond-large .base-pos.first { top: 50%; right: 4px; transform: translateY(-50%) rotate(45deg); }
-.diamond-large .base-pos.second { top: 4px; left: 50%; transform: translateX(-50%) rotate(45deg); }
-.diamond-large .base-pos.third { top: 50%; left: 4px; transform: translateY(-50%) rotate(45deg); }
+.diamond-large .base-pos.first { top: 50%; right: 2px; transform: translateY(-50%) rotate(45deg); }
+.diamond-large .base-pos.second { top: 2px; left: 50%; transform: translateX(-50%) rotate(45deg); }
+.diamond-large .base-pos.third { top: 50%; left: 2px; transform: translateY(-50%) rotate(45deg); }
 
 /* Strike Zone */
 .sz-header {
@@ -1268,7 +1267,8 @@ body {
 /* ── Situation Bar ─────────────────────────────────────────── */
 .sit-bar {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: space-between;
     padding: 14px 16px;
     gap: 16px;
     border-bottom: 1px solid var(--border);
