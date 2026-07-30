@@ -149,7 +149,7 @@ function renderGames(games){
             ${isDelayed?'<span style="font-size:10px;color:var(--live-yellow)">Weather delay</span>':''}
             ${(isPreview&&g.venue)?`<span style="font-size:10px;color:var(--text-muted)">${g.venue}</span>`:''}
         </div>`;
-        c.addEventListener('click',()=>openGameCenter(g.gamePk,aw,hm));list.appendChild(c);
+        c.addEventListener('click',()=>openGameCenter(g.gamePk,aw,hm,st.abstract));list.appendChild(c);
     });
 }
 function showLoading(){document.getElementById('loadingState').style.display='flex';document.getElementById('gamesList').innerHTML='';document.getElementById('emptyState').style.display='none';}
@@ -172,13 +172,59 @@ function switchScreen(id){
     if(id!=='app-gamecenter')stopGameFeed();
 }
 
-function openGameCenter(pk,away,home){
+function openGameCenter(pk,away,home,status){
     stopGameFeed();stopSchedulePoll();
     resetTransientAlerts();
     currentGamePk=pk;currentGame={away,home};activeTab='game';lastFeedData=null;lastFeedVersion=null;lastFeedOrder=0;lastPlayIndex=-1;lastAnimatedPitchEventId=null;lastPitchContextKey=null;lastActiveAtBatIndex=null;activePlayAheadOfLinescore=false;switchScreen('app-gamecenter');
     document.getElementById('gcContent').innerHTML='<div class="loading-state" id="gcLoader"><div class="spinner"></div><p>Loading game...</p></div>';
     renderGCTabs(away,home);
-    startGameFeed();
+    if(status==='Preview'){
+        loadLineupPreview(pk,away,home);
+    }else{
+        startGameFeed();
+    }
+}
+
+async function loadLineupPreview(pk,away,home){
+    try{
+        const r=await fetch(`${API}/api/game/${pk}/lineup`);
+        const d=await r.json();
+        renderLineupPreview(d,away,home);
+    }catch(e){
+        document.getElementById('gcContent').innerHTML='<div class="empty-state"><p>Lineups not available yet</p></div>';
+    }
+}
+
+function renderLineupPreview(data,away,home){
+    const container=document.getElementById('gcContent');
+    const isPreview=data.status==='Preview';
+    const pp=data.probablePitchers||{};
+    let html='';
+    if(isPreview){
+        html+=`<div class="lineup-preview">`;
+        html+=`<div class="lineup-section"><div class="lineup-header">${teamLogoImg(away.abbr,away.id,28)} <span>${away.name} probable pitcher</span></div>`;
+        if(pp.away)html+=`<div class="lineup-pitcher"><img src="${playerHeadshotUrl(pp.away.id,120)}" alt="" class="lineup-pitcher-img" onerror="this.style.display='none'"><div class="lineup-pitcher-info"><span class="lineup-pitcher-name">${pp.away.fullName}</span><span class="lineup-pitcher-num">#${pp.away.number}</span></div></div>`;
+        else html+=`<div class="lineup-tbd">TBD</div>`;
+        html+=`</div>`;
+        html+=`<div class="lineup-section"><div class="lineup-header">${teamLogoImg(home.abbr,home.id,28)} <span>${home.name} probable pitcher</span></div>`;
+        if(pp.home)html+=`<div class="lineup-pitcher"><img src="${playerHeadshotUrl(pp.home.id,120)}" alt="" class="lineup-pitcher-img" onerror="this.style.display='none'"><div class="lineup-pitcher-info"><span class="lineup-pitcher-name">${pp.home.fullName}</span><span class="lineup-pitcher-num">#${pp.home.number}</span></div></div>`;
+        else html+=`<div class="lineup-tbd">TBD</div>`;
+        html+=`</div>`;
+        const renderLineup=(lineup,team,teamData)=>{
+            if(!lineup.length)return'';
+            let h=`<div class="lineup-section"><div class="lineup-header">${teamLogoImg(teamData.abbr,teamData.id,28)} <span>${teamData.name} batting order</span></div>`;
+            h+=`<table class="lineup-table"><thead><tr><th>#</th><th>Player</th><th>Pos</th><th>AVG</th></tr></thead><tbody>`;
+            lineup.forEach(p=>{
+                h+=`<tr><td>${p.order}</td><td><div class="lineup-player"><img src="${playerHeadshotUrl(p.id,40)}" alt="" class="lineup-player-img" onerror="this.style.display='none'"><span>${p.name}</span></div></td><td>${p.position}</td><td>${p.avg}</td></tr>`;
+            });
+            h+=`</tbody></table></div>`;
+            return h;
+        };
+        html+=renderLineup(data.lineups?.away||[],'away',away);
+        html+=renderLineup(data.lineups?.home||[],'home',home);
+        html+=`</div>`;
+    }
+    container.innerHTML=html||'<div class="empty-state"><p>Lineups not available yet</p></div>';
 }
 function renderGCTabs(away,home){document.getElementById('gcTabs').innerHTML=`<button class="gc-tab active" data-tab="game" onclick="showGCPanel('game')">Feed</button><button class="gc-tab" data-tab="away" onclick="showGCPanel('away')">${away.abbr}</button><button class="gc-tab" data-tab="home" onclick="showGCPanel('home')">${home.abbr}</button>`;}
 function toggleGCPanel(tab){

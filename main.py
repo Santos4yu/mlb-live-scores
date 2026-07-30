@@ -1183,6 +1183,12 @@ async def get_teams():
     return out
 
 
+def _extract_pitcher_info(p):
+    if not p or not isinstance(p, dict):
+        return None
+    return {"id": p.get("id"), "fullName": p.get("fullName", ""), "number": p.get("primaryNumber", "")}
+
+
 @app.get("/api/schedule")
 async def get_schedule(date: str = Query(...)):
     data = await cached_get(
@@ -1236,8 +1242,57 @@ async def get_schedule(date: str = Query(...)):
                 },
                 "venue": g.get("venue", {}).get("name", ""),
                 "gameDate": g.get("gameDate", ""),
+                "probablePitchers": {
+                    "away": _extract_pitcher_info(g.get("teams", {}).get("away", {}).get("probablePitcher")),
+                    "home": _extract_pitcher_info(g.get("teams", {}).get("home", {}).get("probablePitcher")),
+                },
             })
     return {"date": date, "totalGames": len(games), "games": games}
+
+
+@app.get("/api/game/{gamePk}/lineup")
+async def get_game_lineup(gamePk: int):
+    data = await cached_get(
+        f"{MLB}/api/v1.1/game/{gamePk}/feed/live",
+        ttl=60, timeout=15,
+    )
+    gd = data.get("gameData", {})
+    status = gd.get("status", {})
+    probable = gd.get("probablePlayers", {})
+    linescore = data.get("liveData", {}).get("linescore", {})
+    boxscore = data.get("liveData", {}).get("boxscore", {})
+
+    def extract_lineup(team_box):
+        players = team_box.get("players", {})
+        lineup = []
+        for pid, pdata in players.items():
+            bo = pdata.get("battingOrder", 0)
+            if bo and bo > 0:
+                person = pdata.get("person", {})
+                pos = pdata.get("position", {})
+                stats = pdata.get("seasonStats", {}).get("batting", {})
+                lineup.append({
+                    "order": bo,
+                    "id": person.get("id"),
+                    "name": person.get("fullName", ""),
+                    "position": pos.get("abbreviation", ""),
+                    "avg": stats.get("avg", ".000"),
+                })
+        lineup.sort(key=lambda x: x["order"])
+        return lineup
+
+    return {
+        "status": status.get("abstractGameState"),
+        "detailedState": status.get("detailedState"),
+        "probablePitchers": {
+            "away": _extract_pitcher_info(probable.get("away")),
+            "home": _extract_pitcher_info(probable.get("home")),
+        },
+        "lineups": {
+            "away": extract_lineup(boxscore.get("teams", {}).get("away", {})),
+            "home": extract_lineup(boxscore.get("teams", {}).get("home", {})),
+        },
+    }
 
 
 def _set_feed_response_headers(response: Response, state: FeedState) -> None:
