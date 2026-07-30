@@ -359,10 +359,10 @@ body {
     height: 10px;
     border-radius: 2px;
     transform: rotate(45deg);
-    background: var(--accent);
+    background: var(--text-muted);
     transition: background 0.3s;
 }
-.diamond-base.occupied { background: var(--text-muted); box-shadow: 0 0 6px rgba(150,150,150,0.2); }
+.diamond-base.occupied { background: var(--text-primary); box-shadow: 0 0 6px var(--accent-glow); }
 .diamond-base.first { bottom: 4px; right: 2px; }
 .diamond-base.second { top: 2px; left: 50%; transform: translateX(-50%) rotate(45deg); }
 .diamond-base.third { bottom: 4px; left: 2px; }
@@ -1272,7 +1272,7 @@ body {
     gap: 16px;
     border-bottom: 1px solid var(--border);
 }
-.sit-bar-left { display: flex; flex-direction: column; gap: 8px; }
+.sit-bar-left { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
 .sit-row { display: flex; flex-direction: column; gap: 4px; }
 .sit-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .sit-player { display: flex; align-items: center; gap: 8px; }
@@ -1280,7 +1280,7 @@ body {
 .sit-player-info { display: flex; flex-direction: column; }
 .sit-player-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
-.diamond-wrap { flex-shrink: 0; align-self: center; }
+.diamond-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .base-avatar {
     width: 28px; height: 28px; border-radius: 50%;
     object-fit: cover; position: absolute;
