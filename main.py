@@ -15,9 +15,12 @@ CACHE_TTL = 15
 _client: httpx.AsyncClient | None = None
 logger = logging.getLogger("live-scores")
 
-LIVE_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("LIVE_FEED_CHECK_SECONDS", "1.0")))
+LIVE_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("LIVE_FEED_CHECK_SECONDS", "0.5")))
 HOT_FEED_TIMEOUT_SECONDS = max(
-    1.0, float(os.environ.get("HOT_FEED_TIMEOUT_SECONDS", "1.75"))
+    0.4, float(os.environ.get("HOT_FEED_TIMEOUT_SECONDS", "0.8"))
+)
+FULL_FEED_MAX_AGE_SECONDS = max(
+    2.0, float(os.environ.get("FULL_FEED_MAX_AGE_SECONDS", "5.0"))
 )
 PREGAME_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("PREGAME_FEED_CHECK_SECONDS", "1")))
 FINAL_FEED_CHECK_SECONDS = max(5.0, float(os.environ.get("FINAL_FEED_CHECK_SECONDS", "15")))
@@ -36,7 +39,7 @@ HOT_FEED_FIELDS = ",".join(
         "halfInning", "inning", "isComplete", "isScoringPlay", "hasOut",
         "matchup", "batter", "pitcher", "id", "fullName", "batSide",
         "pitchHand", "code", "playEvents", "eventId", "pitchNumber",
-        "playId",
+        "playId", "index",
         "isPitch", "details", "type", "call", "startSpeed", "endSpeed",
         "isInPlay", "isStrike", "isBall", "pitchData", "coordinates",
         "x", "y", "pX", "pZ", "zone", "strikeZoneTop",
@@ -93,6 +96,7 @@ class FeedState:
     full_error_count: int = 0
     next_full_retry_at: float = 0.0
     last_full_attempt_timestamp: str | None = None
+    last_full_success_at: float = 0.0
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     full_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     subscribers: set[asyncio.Queue] = field(default_factory=set)
@@ -143,7 +147,7 @@ def _cache_buster() -> str:
 
 
 def _hot_cache_buster() -> str:
-    """Share duplicate checks while forcing a fresh CDN object each second."""
+    """Share duplicate checks while forcing a fresh object each live interval."""
     return str(int(time.time() / LIVE_FEED_CHECK_SECONDS))
 
 
@@ -228,6 +232,7 @@ def _hot_revision(result: dict) -> str:
                 "status",
                 "currentPlay",
                 "currentPlayActive",
+                "currentAlerts",
                 "linescore",
                 "currentBatter",
                 "currentPitcher",
@@ -340,6 +345,10 @@ def _overlay_hot_projection(base: dict, hot: dict) -> dict:
     ):
         if hot.get(key) is not None:
             merged[key] = _prefer_hot(hot[key], merged.get(key))
+    if "currentAlerts" in hot:
+        # This is the alert set for exactly the projected current play. An
+        # empty list on a new at-bat must clear the preceding play's alerts.
+        merged["currentAlerts"] = hot["currentAlerts"]
 
     current_play = merged.get("currentPlay")
     if current_play is not None:
@@ -434,7 +443,11 @@ async def _refresh_full_feed(
             state.source_timestamp = full_timestamp
         state.full_error_count = 0
         state.next_full_retry_at = 0.0
-        return _store_processed_feed(state, result, "full")
+        state.last_full_success_at = time.monotonic()
+        _store_processed_feed(state, result, "full")
+        # A valid, current full response is successful even when its logical
+        # payload is identical and therefore does not need publishing.
+        return True
 
 
 async def _run_full_enrichment(
@@ -471,7 +484,16 @@ async def _run_full_enrichment(
             state.enrichment_timestamp = None
             pending = state.pending_enrichment_timestamp
             state.pending_enrichment_timestamp = None
-            if not cancelled and pending is not None:
+            full_refresh_due = (
+                not state.last_full_success_at
+                or time.monotonic() - state.last_full_success_at
+                >= FULL_FEED_MAX_AGE_SECONDS
+            )
+            if (
+                not cancelled
+                and pending is not None
+                and (state.full_error_count or full_refresh_due)
+            ):
                 _schedule_full_enrichment(game_pk, state, pending)
 
 
@@ -588,7 +610,16 @@ async def _refresh_feed_if_changed(
                         _store_processed_feed(state, hot, "hot")
                     else:
                         _merge_hot_feed(game_pk, state, hot_raw)
-                    if timestamp is not None and timestamp != state.full_timestamp:
+                    full_refresh_due = (
+                        not state.last_full_success_at
+                        or time.monotonic() - state.last_full_success_at
+                        >= FULL_FEED_MAX_AGE_SECONDS
+                    )
+                    if (
+                        timestamp is not None
+                        and timestamp != state.full_timestamp
+                        and (state.full_error_count or full_refresh_due)
+                    ):
                         _schedule_full_enrichment(game_pk, state, timestamp)
         except asyncio.CancelledError:
             raise
@@ -608,10 +639,6 @@ def _feed_poll_interval(state: FeedState) -> float:
         interval = LIVE_FEED_CHECK_SECONDS
     else:
         interval = PREGAME_FEED_CHECK_SECONDS
-    if state.error_count:
-        # Keep recovery prompt after a transient origin failure. The dedicated
-        # hot-feed deadline already bounds request pressure during an outage.
-        interval = max(interval, min(1.0, LIVE_FEED_CHECK_SECONDS * 2))
     return interval
 
 
@@ -642,7 +669,133 @@ def _ensure_feed_poller(game_pk: int, state: FeedState) -> None:
         )
 
 
-def _short_play_result(result: dict) -> str:
+TIMER_EVENT_LABELS = {
+    "batter_timeout": ("Batter Timeout", "batter-timeout"),
+    "pitch_timer_violation": ("Pitch Timer Violation", "pitch-timer"),
+}
+GAME_EVENT_LABELS = {
+    "mound_visit": ("Mound Visit", "mound"),
+    "pitching_substitution": ("Pitching Change", "pitcher-change"),
+    "offensive_substitution": ("Offensive Sub", "sub"),
+    "defensive_substitution": ("Defensive Sub", "sub"),
+    "stolen_base_2b": ("Stolen Base", "steal"),
+    "stolen_base_3b": ("Stolen Base", "steal"),
+    "caught_stealing_2b": ("Caught Stealing", "steal"),
+    "caught_stealing_3b": ("Caught Stealing", "steal"),
+    "wild_pitch": ("Wild Pitch", "event"),
+    "passed_ball": ("Passed Ball", "event"),
+    "pickoff": ("Pickoff Attempt", "mound"),
+    "stepoff": ("Pitcher Step Off", "mound"),
+    "review": ("Replay Review", "replay"),
+    "challenge": ("Replay Review", "replay"),
+    "defensive_switch": ("Defensive Sub", "sub"),
+    "injury": ("Injury", "injury"),
+    **TIMER_EVENT_LABELS,
+}
+
+
+def _event_is_pitch(event: dict) -> bool:
+    explicit_is_pitch = event.get("isPitch")
+    if explicit_is_pitch is not None:
+        return bool(explicit_is_pitch)
+    details = event.get("details", {})
+    if str(details.get("eventType") or "").lower() in TIMER_EVENT_LABELS:
+        return False
+    event_kind = str(event.get("type") or "").lower()
+    if event_kind == "action":
+        return False
+    if event_kind == "pitch":
+        return True
+    pitch_data = event.get("pitchData", {})
+    return bool(
+        pitch_data.get("coordinates")
+        or pitch_data.get("startSpeed")
+        or details.get("call", {}).get("code")
+    )
+
+
+def _strikeout_style(play_events: list[dict]) -> tuple[str | None, int]:
+    pitch_events = [
+        (index, event)
+        for index, event in enumerate(play_events)
+        if _event_is_pitch(event)
+    ]
+    if not pitch_events:
+        return None, 0
+
+    final_index, final_pitch = pitch_events[-1]
+    for trailing_event in play_events[final_index + 1:]:
+        trailing_type = str(
+            trailing_event.get("details", {}).get("eventType") or ""
+        ).lower()
+        if trailing_type in TIMER_EVENT_LABELS:
+            # A timer violation, rather than the preceding pitch, may have
+            # produced strike three. Do not guess swinging versus looking.
+            return None, len(pitch_events)
+
+    details = final_pitch.get("details", {})
+    call = details.get("call", {})
+    code = str(call.get("code") or details.get("code") or "").upper()
+    text = " ".join(
+        str(value or "")
+        for value in (call.get("description"), details.get("description"))
+    ).lower()
+    if any(
+        phrase in text
+        for phrase in ("swinging", "foul tip", "missed bunt", "foul bunt")
+    ) or code in {"S", "W", "T", "M", "L"}:
+        return "swinging", len(pitch_events)
+    if "called strike" in text or code == "C":
+        return "looking", len(pitch_events)
+    return None, len(pitch_events)
+
+
+def _game_event_alert(play: dict, event: dict) -> dict | None:
+    event_type = str(event.get("eventType") or "").lower()
+    description = str(event.get("description") or "")
+    lowered = description.lower()
+    if not event_type:
+        if "step off" in lowered:
+            event_type = "stepoff"
+        elif "pickoff attempt" in lowered or "pickoff" in lowered:
+            event_type = "pickoff"
+        elif "hit by pitch" in lowered:
+            event_type = "hit_by_pitch"
+        elif "batter timeout" in lowered:
+            event_type = "batter_timeout"
+        elif (
+            "pitch timer violation" in lowered
+            or "pitch clock violation" in lowered
+        ):
+            event_type = "pitch_timer_violation"
+    if event_type not in GAME_EVENT_LABELS:
+        return None
+
+    label, icon_type = GAME_EVENT_LABELS[event_type]
+    event_id = event.get("eventId") or (
+        f"ab:{play.get('atBatIndex', 'unknown')}:"
+        f"event:{event.get('eventIndex', 'unknown')}:{event_type}"
+    )
+    title = label
+    if event_type == "pitching_substitution" and description:
+        title = description.split(".", 1)[0]
+    about = play.get("about", {})
+    return {
+        "type": icon_type,
+        "title": title,
+        "description": description,
+        "inning": (
+            f"{str(about.get('halfInning') or '').replace('top', 'Top ').replace('bottom', 'Bot ')}"
+            f"{about.get('inning') or ''}"
+        ),
+        "eventId": event_id,
+        "key": event_id,
+    }
+
+
+def _short_play_result(
+    result: dict, play_events: list[dict] | None = None
+) -> str:
     event_type = str(result.get("eventType") or "").lower()
     description = str(result.get("description") or "")
     lowered = description.lower()
@@ -679,6 +832,12 @@ def _short_play_result(result: dict) -> str:
     if event_type in ("pop_out", "popout") or "pops out" in lowered:
         return f"Popped out{target}"
 
+    if event_type == "strikeout":
+        style, pitch_count = _strikeout_style(play_events or [])
+        if style:
+            prefix = "Three-pitch strikeout" if pitch_count == 3 else "Strikeout"
+            return f"{prefix} {style}"
+
     simple_results = {
         "strikeout": "Struck out",
         "walk": "Walked",
@@ -703,13 +862,27 @@ def _process_play(play: dict) -> dict:
     result = play.get("result", {})
     about = play.get("about", {})
     matchup = play.get("matchup", {})
+    result_event_type = str(result.get("eventType") or "").lower()
+    result_description = str(result.get("description") or "")
+    transient_timer_result = bool(
+        about.get("isComplete") is not True
+        and (
+            result_event_type in TIMER_EVENT_LABELS
+            or "batter timeout" in result_description.lower()
+            or "pitch timer violation" in result_description.lower()
+            or "pitch clock violation" in result_description.lower()
+        )
+    )
+    display_result = {} if transient_timer_result else result
+    play_events = play.get("playEvents", [])
     play_obj = {
         "atBatIndex": play.get("atBatIndex"),
-        "result": result.get("description", ""),
-        "shortResult": _short_play_result(result),
-        "eventType": result.get("eventType", ""),
-        "rbi": result.get("rbi", 0),
-        "score": result.get("score", False),
+        "result": display_result.get("description", ""),
+        "shortResult": _short_play_result(display_result, play_events),
+        "resultType": result.get("type", ""),
+        "eventType": display_result.get("eventType", ""),
+        "rbi": display_result.get("rbi", 0),
+        "score": display_result.get("score", False),
         "about": {
             "halfInning": about.get("halfInning"),
             "inning": about.get("inning"),
@@ -729,24 +902,28 @@ def _process_play(play: dict) -> dict:
         },
         "pitches": [],
     }
-    for event in play.get("playEvents", [])[-20:]:
+    retained_events = play_events[-20:]
+    retained_start = max(0, len(play_events) - len(retained_events))
+    for fallback_index, event in enumerate(retained_events, start=retained_start):
         details = event.get("details", {})
         pitch_data = event.get("pitchData", {})
         coordinates = pitch_data.get("coordinates", {})
-        explicit_is_pitch = event.get("isPitch")
-        is_pitch = (
-            bool(explicit_is_pitch)
-            if explicit_is_pitch is not None
-            else bool(
-                coordinates
-                or pitch_data.get("startSpeed")
-                or details.get("call", {}).get("code")
-            )
+        event_index = (
+            event.get("index")
+            if event.get("index") is not None
+            else fallback_index
+        )
+        source_event_id = event.get("playId") or event.get("eventId")
+        event_id = (
+            str(source_event_id)
+            if source_event_id is not None
+            else f"ab:{play.get('atBatIndex', 'unknown')}:event:{event_index}"
         )
         play_obj["pitches"].append({
-            "eventId": event.get("playId") or event.get("eventId"),
+            "eventId": event_id,
+            "eventIndex": event_index,
             "pitchNumber": event.get("pitchNumber"),
-            "isPitch": is_pitch,
+            "isPitch": _event_is_pitch(event),
             "type": details.get("type", {}).get("description", ""),
             "code": details.get("code", ""),
             "description": details.get("description", ""),
@@ -781,7 +958,10 @@ def _process_feed(gamePk, data):
     all_plays = [_process_play(play) for play in raw_plays[-40:]]
 
     raw_current_play = plays_data.get("currentPlay")
-    current_play = _process_play(raw_current_play) if raw_current_play else None
+    processed_raw_current_play = (
+        _process_play(raw_current_play) if raw_current_play else None
+    )
+    current_play = processed_raw_current_play
     if current_play is None:
         for play in reversed(all_plays):
             if not play["about"]["isComplete"]:
@@ -790,34 +970,19 @@ def _process_feed(gamePk, data):
     if current_play is None and all_plays:
         current_play = all_plays[-1]
 
-    event_types = {
-        'mound_visit': ('Mound Visit', 'mound'),
-        'pitching_substitution': ('Pitching Change', 'pitcher-change'),
-        'offensive_substitution': ('Defensive Sub', 'sub'),
-        'stolen_base_2b': ('Stolen Base', 'steal'), 'stolen_base_3b': ('Stolen Base', 'steal'),
-        'caught_stealing_2b': ('Caught Stealing', 'steal'), 'caught_stealing_3b': ('Caught Stealing', 'steal'),
-        'wild_pitch': ('Wild Pitch', 'event'), 'passed_ball': ('Passed Ball', 'event'),
-        'pickoff': ('Pickoff Attempt', 'mound'),
-        'review': ('Replay Review', 'replay'), 'challenge': ('Replay Review', 'replay'),
-        'defensive_switch': ('Defensive Sub', 'sub'), 'injury': ('Injury', 'injury'),
-    }
     game_events = []
     for p in all_plays:
         for ev in p.get("pitches", []):
-            evt = ev.get("eventType", "")
-            desc = ev.get("description", "")
-            if not evt and desc:
-                if 'Step Off' in desc: evt = 'stepoff'
-                elif 'Hit By Pitch' in desc: evt = 'hit_by_pitch'
-            if evt in event_types:
-                label, icon_type = event_types[evt]
-                game_events.append({
-                    "type": icon_type,
-                    "title": label if evt != 'pitching_substitution' else desc.split('.')[0] if '.' in desc else desc,
-                    "description": desc,
-                    "inning": f"{p.get('about',{}).get('halfInning','').replace('top','Top ').replace('bottom','Bot ')}{p.get('about',{}).get('inning','')}",
-                })
+            alert = _game_event_alert(p, ev)
+            if alert is not None:
+                game_events.append(alert)
     game_events.reverse()
+    current_alerts = []
+    if processed_raw_current_play is not None:
+        for event in processed_raw_current_play.get("pitches", []):
+            alert = _game_event_alert(processed_raw_current_play, event)
+            if alert is not None:
+                current_alerts.append(alert)
 
     teams_box = boxscore.get("teams", {})
     def parse_team_box(team_data):
@@ -839,15 +1004,26 @@ def _process_feed(gamePk, data):
                     "hr": batting.get("homeRuns", 0), "tb": batting.get("totalBases", 0),
                     "sb": batting.get("stolenBases", 0),
                 })
-            if pitching.get("inningsPitched"):
-                tp = pitching.get("pitchesThrown", 0)
-                st = pitching.get("strikesThrown", 0)
+            if (
+                pitching.get("inningsPitched") is not None
+                or pitching.get("numberOfPitches") is not None
+                or pitching.get("pitchesThrown") is not None
+            ):
+                tp = pitching.get("numberOfPitches")
+                if tp is None:
+                    tp = pitching.get("pitchesThrown")
+                st = pitching.get("strikes")
+                if st is None:
+                    st = pitching.get("strikesThrown")
+                tp = tp or 0
+                st = st or 0
                 pitchers.append({
                     "id": person.get("id"), "name": person.get("fullName", ""),
                     "ip": pitching.get("inningsPitched", "0.0"), "h": pitching.get("hits", 0),
                     "r": pitching.get("runs", 0), "er": pitching.get("earnedRuns", 0),
                     "k": pitching.get("strikeOuts", 0), "bb": pitching.get("baseOnBalls", 0),
                     "hr": pitching.get("homeRuns", 0), "era": pitching.get("era", "0.00"),
+                    "pitches": tp,
                     "strk": f"{round(st/tp*100)}%" if tp > 0 else "0%",
                 })
         batters.sort(key=lambda x: x.get("battingOrder", 99))
@@ -905,6 +1081,7 @@ def _process_feed(gamePk, data):
         "plays": all_plays,
         "currentPlay": current_play,
         "currentPlayActive": current_play_active,
+        "currentAlerts": current_alerts,
         "linescore": {
             "inning": linescore_full.get("currentInning"),
             "inningState": linescore_full.get("inningState"),
@@ -1018,8 +1195,18 @@ def _set_feed_response_headers(response: Response, state: FeedState) -> None:
 
 @app.get("/api/game/{gamePk}/feed")
 async def get_game_feed(gamePk: int, response: Response):
+    state = _get_feed_state(gamePk)
     try:
-        state = await _refresh_feed_if_changed(gamePk)
+        # When an SSE stream owns the shared poller, REST is a delivery
+        # fallback only. Reusing its latest state avoids doubling MLB traffic
+        # precisely while the stream is recovering.
+        if not (
+            state.data is not None
+            and state.subscribers
+            and state.poller is not None
+            and not state.poller.done()
+        ):
+            state = await _refresh_feed_if_changed(gamePk)
     except Exception:
         return JSONResponse(
             {"error": "Live feed is temporarily unavailable", "status": "loading"},
@@ -1039,7 +1226,7 @@ def _feed_is_degraded(state: FeedState) -> bool:
         return True
     if not state.last_success_at:
         return state.data is None
-    max_success_age = HOT_FEED_TIMEOUT_SECONDS + LIVE_FEED_CHECK_SECONDS + 0.5
+    max_success_age = HOT_FEED_TIMEOUT_SECONDS + _feed_poll_interval(state) + 0.5
     return time.monotonic() - state.last_success_at > max_success_age
 
 
@@ -1060,7 +1247,7 @@ async def stream_game_feed(gamePk: int, request: Request):
                 except Exception:
                     yield "event: feed-error\ndata: unavailable\n\n"
 
-            # Start the shared 4 Hz poller only after first paint, avoiding a
+            # Start the shared poller only after first paint, avoiding a
             # duplicate upstream request when a game is opened cold.
             _ensure_feed_poller(gamePk, state)
 

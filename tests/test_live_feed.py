@@ -134,6 +134,42 @@ def matchup_feed(
     return feed
 
 
+def strikeout_play(final_code, final_description, *, pitch_count=3):
+    events = []
+    for pitch_number in range(1, pitch_count + 1):
+        code = final_code if pitch_number == pitch_count else "C"
+        description = (
+            final_description
+            if pitch_number == pitch_count
+            else "Called Strike"
+        )
+        events.append(
+            {
+                "index": pitch_number - 1,
+                "playId": f"pitch-{pitch_number}",
+                "pitchNumber": pitch_number,
+                "isPitch": True,
+                "details": {
+                    "code": code,
+                    "description": description,
+                    "call": {"code": code, "description": description},
+                },
+                "pitchData": {},
+                "count": {},
+            }
+        )
+    return {
+        "atBatIndex": 7,
+        "result": {
+            "eventType": "strikeout",
+            "description": "Batter strikes out.",
+        },
+        "about": {"isComplete": True},
+        "matchup": {"batter": {}, "pitcher": {}},
+        "playEvents": events,
+    }
+
+
 class FakeResponse:
     def __init__(self, data):
         self._data = data
@@ -201,6 +237,192 @@ class ProcessFeedTests(unittest.TestCase):
 
         self.assertEqual("Grounded into forceout to third", short)
 
+    def test_strikeout_label_uses_final_pitch_call_and_actual_pitch_count(self):
+        cases = (
+            ("S", "Swinging Strike", 3, "Three-pitch strikeout swinging"),
+            ("C", "Called Strike", 3, "Three-pitch strikeout looking"),
+            ("W", "Swinging Strike (Blocked)", 4, "Strikeout swinging"),
+            ("C", "Called Strike", 5, "Strikeout looking"),
+        )
+        for code, description, pitch_count, expected in cases:
+            with self.subTest(expected=expected):
+                play = strikeout_play(
+                    code, description, pitch_count=pitch_count
+                )
+                play["playEvents"].insert(
+                    1,
+                    {
+                        "index": 20,
+                        "isPitch": False,
+                        "details": {
+                            "eventType": "mound_visit",
+                            "description": "Mound Visit.",
+                        },
+                    },
+                )
+
+                self.assertEqual(
+                    expected, main._process_play(play)["shortResult"]
+                )
+
+    def test_strikeout_label_stays_generic_without_terminal_pitch_evidence(self):
+        ambiguous = strikeout_play("", "", pitch_count=3)
+        timed_out = strikeout_play("C", "Called Strike", pitch_count=3)
+        timed_out["playEvents"].append(
+            {
+                "index": 3,
+                "isPitch": False,
+                "details": {
+                    "eventType": "batter_timeout",
+                    "description": "Batter Timeout.",
+                },
+            }
+        )
+
+        self.assertEqual("Struck out", main._process_play(ambiguous)["shortResult"])
+        self.assertEqual("Struck out", main._process_play(timed_out)["shortResult"])
+
+    def test_timer_violation_is_a_stable_alert_not_a_temporary_play_result(self):
+        for event_type, description, expected_title, expected_type in (
+            (
+                "batter_timeout",
+                "Batter Timeout.",
+                "Batter Timeout",
+                "batter-timeout",
+            ),
+            (
+                "pitch_timer_violation",
+                "Pitch Timer Violation.",
+                "Pitch Timer Violation",
+                "pitch-timer",
+            ),
+        ):
+            with self.subTest(event_type=event_type):
+                feed = matchup_feed(
+                    "20260730_022900",
+                    at_bat_index=18,
+                    play_batter=(663330, "Jahmai Jones"),
+                    play_pitcher=(682052, "Jacob Lopez"),
+                    include_pitch=False,
+                )
+                play = feed["liveData"]["plays"]["currentPlay"]
+                play["result"] = {
+                    "type": "atBat",
+                    "eventType": event_type,
+                    "description": description,
+                }
+                play["playEvents"] = [
+                    {
+                        "index": 4,
+                        "isPitch": False,
+                        "details": {
+                            "eventType": event_type,
+                            "description": description,
+                        },
+                    }
+                ]
+
+                first = main._process_feed(824973, feed)
+                second = main._process_feed(824973, copy.deepcopy(feed))
+                alert = first["gameEvents"][0]
+                hot_feed = copy.deepcopy(feed)
+                hot_feed["liveData"]["plays"]["allPlays"] = []
+                hot = main._process_feed(824973, hot_feed)
+
+                self.assertEqual("", first["plays"][-1]["result"])
+                self.assertEqual("", first["plays"][-1]["shortResult"])
+                self.assertEqual("atBat", first["plays"][-1]["resultType"])
+                self.assertEqual(expected_title, alert["title"])
+                self.assertEqual(expected_type, alert["type"])
+                self.assertEqual("ab:18:event:4", alert["eventId"])
+                self.assertEqual(alert["eventId"], alert["key"])
+                self.assertEqual(
+                    alert["eventId"], second["gameEvents"][0]["eventId"]
+                )
+                self.assertEqual([], hot["gameEvents"])
+                self.assertEqual(alert, hot["currentAlerts"][0])
+
+    def test_hot_current_alert_is_merged_without_all_plays(self):
+        initial_feed = matchup_feed(
+            "20260730_022900",
+            at_bat_index=18,
+            play_batter=(663330, "Jahmai Jones"),
+            play_pitcher=(682052, "Jacob Lopez"),
+            include_pitch=False,
+        )
+        state = main.FeedState()
+        initial = main._process_feed(824973, initial_feed)
+        state.hot_revision = main._hot_revision(initial)
+        main._store_processed_feed(state, initial, "full")
+
+        hot_feed = copy.deepcopy(initial_feed)
+        hot_feed["metaData"]["timeStamp"] = "20260730_022901"
+        hot_feed["liveData"]["plays"]["allPlays"] = []
+        hot_feed["liveData"]["plays"]["currentPlay"]["playEvents"] = [
+            {
+                "index": 4,
+                "isPitch": False,
+                "details": {
+                    "eventType": "batter_timeout",
+                    "description": "Batter Timeout.",
+                },
+            }
+        ]
+
+        changed = main._merge_hot_feed(824973, state, hot_feed)
+
+        self.assertTrue(changed)
+        self.assertEqual("Batter Timeout", state.data["currentAlerts"][0]["title"])
+        self.assertEqual([], state.data["gameEvents"])
+
+        next_feed = matchup_feed(
+            "20260730_022902",
+            at_bat_index=19,
+            play_batter=(665161, "Next Batter"),
+            play_pitcher=(682052, "Jacob Lopez"),
+            include_pitch=False,
+        )
+        next_feed["liveData"]["plays"]["allPlays"] = []
+        main._merge_hot_feed(824973, state, next_feed)
+
+        self.assertEqual([], state.data["currentAlerts"])
+
+    def test_completed_plate_appearance_keeps_result_after_timeout_alert(self):
+        feed = matchup_feed(
+            "20260730_022901",
+            at_bat_index=18,
+            play_batter=(663330, "Jahmai Jones"),
+            play_pitcher=(682052, "Jacob Lopez"),
+            complete=True,
+            include_pitch=False,
+        )
+        play = feed["liveData"]["plays"]["currentPlay"]
+        play["result"] = {
+            "type": "atBat",
+            "eventType": "single",
+            "description": "Jahmai Jones singles on a line drive.",
+        }
+        play["playEvents"] = [
+            {
+                "index": 4,
+                "isPitch": False,
+                "details": {
+                    "eventType": "batter_timeout",
+                    "description": "Batter Timeout.",
+                },
+            }
+        ]
+
+        result = main._process_feed(824973, feed)
+
+        self.assertEqual(
+            "Jahmai Jones singles on a line drive.",
+            result["plays"][-1]["result"],
+        )
+        self.assertEqual("Singled", result["plays"][-1]["shortResult"])
+        self.assertEqual("atBat", result["plays"][-1]["resultType"])
+        self.assertEqual("Batter Timeout", result["gameEvents"][0]["title"])
+
     def test_explicit_pitch_is_visible_before_richer_pitch_data(self):
         result = main._process_feed(123, raw_feed())
 
@@ -264,6 +486,59 @@ class ProcessFeedTests(unittest.TestCase):
         )
 
         self.assertTrue(main._feed_is_degraded(state))
+
+    def test_stream_health_uses_the_status_specific_poll_cadence(self):
+        state = main.FeedState(
+            data={"status": {"abstractGameState": "Final"}},
+            last_success_at=main.time.monotonic() - 5,
+        )
+
+        self.assertFalse(main._feed_is_degraded(state))
+
+    def test_live_errors_do_not_slow_the_half_second_retry_cadence(self):
+        state = main.FeedState(
+            data={"status": {"abstractGameState": "Live"}},
+            error_count=4,
+        )
+
+        self.assertEqual(
+            main.LIVE_FEED_CHECK_SECONDS, main._feed_poll_interval(state)
+        )
+
+    def test_pitcher_boxscore_includes_authoritative_full_game_pitch_count(self):
+        feed = matchup_feed(
+            "20260730_022853",
+            at_bat_index=18,
+            play_batter=(663330, "Jahmai Jones"),
+            play_pitcher=(682052, "Jacob Lopez"),
+        )
+        feed["liveData"]["boxscore"]["teams"] = {
+            "away": {},
+            "home": {
+                "players": {
+                    "ID682052": {
+                        "person": {"id": 682052, "fullName": "Jacob Lopez"},
+                        "position": {"abbreviation": "P"},
+                        "stats": {
+                            "pitching": {
+                                "inningsPitched": "5.2",
+                                "numberOfPitches": 87,
+                                "pitchesThrown": 999,
+                                "strikes": 56,
+                                "strikesThrown": 1,
+                            }
+                        },
+                    }
+                }
+            },
+        }
+
+        result = main._process_feed(824973, feed)
+
+        pitcher = result["boxscore"]["home"]["pitchers"][0]
+        self.assertEqual(682052, pitcher["id"])
+        self.assertEqual(87, pitcher["pitches"])
+        self.assertEqual("64%", pitcher["strk"])
 
     def test_end_inning_uses_upcoming_batter_and_defensive_pitcher_together(self):
         feed = matchup_feed(
@@ -383,6 +658,10 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0)
         return first_task
 
+    @staticmethod
+    def make_full_refresh_due(state):
+        state.last_full_success_at -= main.FULL_FEED_MAX_AGE_SECONDS + 1
+
     async def test_large_feed_is_fetched_only_when_timestamp_changes(self):
         first = await main._refresh_feed_if_changed(123, force_full=True)
         first_revision = first.revision
@@ -394,6 +673,7 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
 
         self.client.timestamp = "20260730_010001"
         self.client.event_id = "pitch-2"
+        self.make_full_refresh_due(first)
         changed = await main._refresh_feed_if_changed(123, min_check_age=0)
         await self.await_enrichment(changed)
 
@@ -422,6 +702,55 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, self.client.hot_calls)
         self.assertEqual(1, self.client.full_calls)
 
+    async def test_rest_fallback_reuses_active_stream_poller_state(self):
+        state = await main._refresh_feed_if_changed(123, force_full=True)
+        state.subscribers.add(asyncio.Queue(maxsize=1))
+        state.poller = asyncio.create_task(asyncio.Event().wait())
+        calls_before = (self.client.hot_calls, self.client.full_calls)
+
+        result = await main.get_game_feed(123, main.Response())
+
+        self.assertIs(result, state.data)
+        self.assertEqual(calls_before, (self.client.hot_calls, self.client.full_calls))
+
+    async def test_metadata_only_timestamp_defers_large_refresh_until_due(self):
+        state = await main._refresh_feed_if_changed(123, force_full=True)
+        self.client.timestamp = "20260730_010001"
+
+        await main._refresh_feed_if_changed(123, min_check_age=0)
+
+        self.assertEqual(1, self.client.full_calls)
+        self.assertIsNone(state.enrichment_task)
+
+        state.last_full_success_at -= main.FULL_FEED_MAX_AGE_SECONDS + 1
+        await main._refresh_feed_if_changed(123, min_check_age=0)
+        await self.await_enrichment(state)
+
+        self.assertEqual(2, self.client.full_calls)
+        self.assertEqual("20260730_010001", state.full_timestamp)
+        self.assertEqual(0, state.full_error_count)
+
+    async def test_hot_pitch_does_not_bypass_full_refresh_cadence(self):
+        state = await main._refresh_feed_if_changed(123, force_full=True)
+        self.client.timestamp = "20260730_010001"
+        self.client.event_id = "pitch-2"
+        self.client.pitch = {"pitch_number": 2}
+
+        await main._refresh_feed_if_changed(123, min_check_age=0)
+
+        self.assertEqual(
+            "pitch-2", state.data["currentPlay"]["pitches"][0]["eventId"]
+        )
+        self.assertEqual(1, self.client.full_calls)
+        self.assertIsNone(state.enrichment_task)
+
+        self.make_full_refresh_due(state)
+        await main._refresh_feed_if_changed(123, min_check_age=0)
+        await self.await_enrichment(state)
+
+        self.assertEqual(2, self.client.full_calls)
+        self.assertEqual("20260730_010001", state.full_timestamp)
+
     async def test_stalled_hot_request_has_a_short_hard_deadline(self):
         original_timeout = main.HOT_FEED_TIMEOUT_SECONDS
         main.HOT_FEED_TIMEOUT_SECONDS = 0.01
@@ -439,6 +768,7 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
         self.client.timestamp = "20260730_010001"
         self.client.event_id = "pitch-2"
         self.client.full_delay = 0.1
+        self.make_full_refresh_due(state)
 
         refresh = asyncio.create_task(
             main._refresh_feed_if_changed(123, min_check_age=0)
@@ -461,6 +791,7 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
         self.client.event_id = "pitch-2"
         self.client.full_timestamp_override = old_full_timestamp
         self.client.full_event_override = "pitch-1"
+        self.make_full_refresh_due(state)
 
         await main._refresh_feed_if_changed(123, min_check_age=0)
         await self.await_enrichment(state)
@@ -542,6 +873,7 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
         self.client.full_timestamp_override = "20260730_010001"
         self.client.full_event_override = "pitch-1"
         self.client.full_pitch_override = {"pitch_number": 1}
+        self.make_full_refresh_due(state)
 
         await main._refresh_feed_if_changed(123, min_check_age=0)
         await self.await_enrichment(state)
@@ -553,6 +885,7 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
     async def test_rapid_timestamps_retain_only_latest_queued_enrichment(self):
         state = await main._refresh_feed_if_changed(123, force_full=True)
         self.client.full_delay = 0.05
+        self.make_full_refresh_due(state)
 
         self.client.timestamp = "20260730_010002"
         self.client.event_id = "pitch-2"
