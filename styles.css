@@ -1277,7 +1277,7 @@ body {
 .sit-row { display: flex; flex-direction: column; gap: 4px; }
 .sit-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .sit-player { display: flex; align-items: center; gap: 8px; }
-.sit-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: center 30%; background: var(--bg-elevated); }
+.sit-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center center; background: var(--bg-elevated); }
 .sit-player-info { display: flex; flex-direction: column; }
 .sit-player-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
@@ -1316,24 +1316,24 @@ body {
 }
 .fpc-avatar-stack {
     position: relative;
-    width: 52px;
-    height: 52px;
-    flex: 0 0 52px;
+    width: 60px;
+    height: 60px;
+    flex: 0 0 60px;
     isolation: isolate;
 }
 .fpc-avatar {
     position: absolute;
     border-radius: 50%;
     object-fit: cover;
-    object-position: top center;
+    object-position: center center;
     background: var(--bg-elevated);
     box-shadow: 0 8px 20px rgba(0,0,0,0.38);
 }
 .fpc-avatar-batter {
     top: 0;
     left: 0;
-    width: 52px;
-    height: 52px;
+    width: 60px;
+    height: 60px;
     z-index: 2;
     border: 2px solid var(--bg-card);
 }
@@ -1419,8 +1419,8 @@ body {
     flex-shrink: 0;
 }
 .feed-avatar {
-    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
-    object-position: center 30%;
+    width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+    object-position: center center;
     background: var(--bg-elevated);
 }
 .feed-indicator {
@@ -1562,8 +1562,8 @@ body {
 
 @media (max-width: 440px) {
     .fpc-top { gap: 12px; padding: 14px; }
-    .fpc-avatar-stack { width: 52px; height: 52px; flex-basis: 52px; }
-    .fpc-avatar-batter { width: 52px; height: 52px; }
+    .fpc-avatar-stack { width: 60px; height: 60px; flex-basis: 60px; }
+    .fpc-avatar-batter { width: 60px; height: 60px; }
     .fpc-batter,
     .fpc-pitcher { display: block; }
     .fpc-player-name,
