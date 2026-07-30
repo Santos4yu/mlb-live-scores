@@ -1175,7 +1175,7 @@ body {
     background: var(--bg-card);
     border-radius: var(--radius);
     border: 1px solid var(--border-accent);
-    overflow: hidden;
+    overflow: visible;
 }
 .fpc-top {
     display: flex; align-items: center; gap: 12px; padding: 14px 16px;
@@ -1221,7 +1221,7 @@ body {
     background: rgba(10,10,20,0.8);
     border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 .mini-sz-grid {
     position: absolute;
