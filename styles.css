@@ -721,27 +721,27 @@ body {
 /* Diamond large */
 .diamond-large {
     position: relative;
-    width: 140px;
-    height: 140px;
+    width: 90px;
+    height: 90px;
 }
 .diamond-large .base {
     position: absolute;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     transform: rotate(45deg);
-    background: var(--border);
+    background: var(--text-muted);
     transition: all 0.3s;
-    border-radius: 5px;
+    border-radius: 4px;
     border: 2px solid var(--border);
     overflow: visible;
 }
 .diamond-large .base.occupied {
     background: var(--text-muted);
-    box-shadow: 0 0 12px rgba(150,150,150,0.25);
+    box-shadow: 0 0 10px rgba(150,150,150,0.25);
 }
-.diamond-large .base-pos.first { top: 50%; right: 2px; transform: translateY(-50%) rotate(45deg); }
-.diamond-large .base-pos.second { top: 6px; left: 50%; transform: translateX(-50%) rotate(45deg); }
-.diamond-large .base-pos.third { top: 50%; left: 2px; transform: translateY(-50%) rotate(45deg); }
+.diamond-large .base-pos.first { top: 50%; right: 0; transform: translateY(-50%) rotate(45deg); }
+.diamond-large .base-pos.second { top: 0; left: 50%; transform: translateX(-50%) rotate(45deg); }
+.diamond-large .base-pos.third { top: 50%; left: 0; transform: translateY(-50%) rotate(45deg); }
 
 /* Strike Zone */
 .sz-header {
@@ -1282,7 +1282,7 @@ body {
 .sit-player-stats { font-size: 11px; color: var(--text-muted); }
 .diamond-wrap { flex-shrink: 0; }
 .base-avatar {
-    width: 26px; height: 26px; border-radius: 50%;
+    width: 22px; height: 22px; border-radius: 50%;
     object-fit: cover; position: absolute;
     top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg);
     border: 1.5px solid var(--border);
