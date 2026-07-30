@@ -1209,7 +1209,7 @@ body {
 .fpc-call { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .fpc-type { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 10px; }
 .fpc-zone-wrap { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
-.fpc-pitch-list { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.fpc-pitch-list { display: flex; flex-direction: column; gap: 6px; }
 .fpc-pitch-row { display: flex; align-items: center; gap: 8px; }
 .fpc-pitch-info { display: flex; flex-direction: column; }
 .fpc-pitch-call { font-size: 13px; font-weight: 700; color: var(--text-primary); }
