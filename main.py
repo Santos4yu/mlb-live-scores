@@ -275,8 +275,10 @@ def _prefer_hot(hot, cold):
                 # intentionally empty fields from the previous entity.
                 return hot
         return {
-            key: _prefer_hot(hot[key], cold.get(key))
-            if key in hot
+            key: (
+                None if hot[key] is None
+                else _prefer_hot(hot[key], cold.get(key))
+            ) if key in hot
             else cold[key]
             for key in cold.keys() | hot.keys()
         }
@@ -688,6 +690,8 @@ GAME_EVENT_LABELS = {
     "stepoff": ("Pitcher Step Off", "mound"),
     "review": ("Replay Review", "replay"),
     "challenge": ("Replay Review", "replay"),
+    "abs_challenge": ("ABS Challenge", "review"),
+    "strikeout_abs_challenge": ("ABS Challenge", "review"),
     "defensive_switch": ("Defensive Sub", "sub"),
     "injury": ("Injury", "injury"),
     **TIMER_EVENT_LABELS,
@@ -768,6 +772,10 @@ def _game_event_alert(play: dict, event: dict) -> dict | None:
             or "pitch clock violation" in lowered
         ):
             event_type = "pitch_timer_violation"
+        elif "abs challenge" in lowered or "automated ball-strike" in lowered:
+            event_type = "abs_challenge"
+        elif "challenge" in lowered and ("strike" in lowered or "ball" in lowered):
+            event_type = "abs_challenge"
     if event_type not in GAME_EVENT_LABELS:
         return None
 
@@ -799,8 +807,25 @@ def _short_play_result(
     event_type = str(result.get("eventType") or "").lower()
     description = str(result.get("description") or "")
     lowered = description.lower()
+    rbi = result.get("rbi", 0) or 0
+    rbi_prefix = ""
+    if rbi == 1:
+        rbi_prefix = "1-run "
+    elif rbi == 2:
+        rbi_prefix = "2-run "
+    elif rbi == 3:
+        rbi_prefix = "3-run "
+    elif rbi >= 4:
+        rbi_prefix = "Grand slam "
+
     target = ""
-    for phrase, label in (
+    field_directions = (
+        ("right field", "right"),
+        ("left field", "left"),
+        ("center field", "center"),
+        ("right-center", "right-center"),
+        ("left-center", "left-center"),
+        ("up the middle", "up the middle"),
         ("third baseman", "third"),
         ("shortstop", "short"),
         ("second baseman", "second"),
@@ -808,9 +833,10 @@ def _short_play_result(
         ("left fielder", "left"),
         ("center fielder", "center"),
         ("right fielder", "right"),
-        ("pitcher", "pitcher"),
-        ("catcher", "catcher"),
-    ):
+        ("pitcher", "the mound"),
+        ("catcher", "the plate"),
+    )
+    for phrase, label in field_directions:
         if phrase in lowered:
             target = f" to {label}"
             break
@@ -843,10 +869,10 @@ def _short_play_result(
         "walk": "Walked",
         "intent_walk": "Intentionally walked",
         "hit_by_pitch": "Hit by pitch",
-        "single": "Singled",
-        "double": "Doubled",
-        "triple": "Tripled",
-        "home_run": "Homered",
+        "single": f"{rbi_prefix}Singled{target}" if rbi else f"Singled{target}",
+        "double": f"{rbi_prefix}Doubled{target}" if rbi else f"Doubled{target}",
+        "triple": f"{rbi_prefix}Tripled{target}" if rbi else f"Tripled{target}",
+        "home_run": f"{rbi_prefix}Homered{target}" if rbi else f"Homered{target}",
         "field_error": "Reached on error",
         "fielders_choice": "Reached on fielder's choice",
         "sac_bunt": "Sacrifice bunt",
@@ -875,6 +901,22 @@ def _process_play(play: dict) -> dict:
     )
     display_result = {} if transient_timer_result else result
     play_events = play.get("playEvents", [])
+    has_abs_challenge = False
+    abs_resolved = False
+    for _pe in play_events:
+        _pe_type = str((_pe.get("details") or {}).get("eventType") or "").lower()
+        _pe_desc = str(_pe.get("details") or {}).get("description", "").lower()
+        if _pe_type in ("abs_challenge", "strikeout_abs_challenge") or "abs challenge" in _pe_desc or "automated ball-strike" in _pe_desc:
+            has_abs_challenge = True
+        if has_abs_challenge and _pe.get("isChallengeable") is False:
+            abs_resolved = True
+    transient_abs_challenge = bool(
+        has_abs_challenge
+        and not abs_resolved
+        and about.get("isComplete") is not True
+    )
+    if transient_abs_challenge:
+        display_result = {}
     play_obj = {
         "atBatIndex": play.get("atBatIndex"),
         "result": display_result.get("description", ""),
@@ -994,6 +1036,7 @@ def _process_feed(gamePk, data):
             person = pdata.get("person", {})
             position = pdata.get("position", {})
             if batting.get("atBats", 0) > 0 or batting.get("summary"):
+                season_batting = pdata.get("seasonStats", {}).get("batting", {})
                 batters.append({
                     "id": person.get("id"), "name": person.get("fullName", ""),
                     "position": position.get("abbreviation", ""),
@@ -1003,6 +1046,9 @@ def _process_feed(gamePk, data):
                     "so": batting.get("strikeOuts", 0), "bb": batting.get("baseOnBalls", 0),
                     "hr": batting.get("homeRuns", 0), "tb": batting.get("totalBases", 0),
                     "sb": batting.get("stolenBases", 0),
+                    "seasonAvg": season_batting.get("avg"),
+                    "seasonH": season_batting.get("hits"),
+                    "seasonAB": season_batting.get("atBats"),
                 })
             if (
                 pitching.get("inningsPitched") is not None
@@ -1030,7 +1076,12 @@ def _process_feed(gamePk, data):
         return {"batters": batters, "pitchers": pitchers}
 
     cp_matchup = plays_data.get("currentPlay", {}).get("matchup", {})
-    line_offense = linescore_full.get("offense", {})
+    line_offense = dict(linescore_full.get("offense", {}))
+    for _base_key in ("first", "second", "third"):
+        line_offense.setdefault(_base_key, line_offense.get(_base_key))
+    if between_innings:
+        for _base_key in ("first", "second", "third"):
+            line_offense.pop(_base_key, None)
     line_defense = linescore_full.get("defense", {})
     offense_batter = line_offense.get("batter") or {}
     play_batter = cp_matchup.get("batter") or {}
