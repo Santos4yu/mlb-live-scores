@@ -1208,7 +1208,7 @@ body {
 .fpc-badge-sm { width: 22px; height: 22px; font-size: 10px; }
 .fpc-call { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .fpc-type { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 10px; }
-.fpc-zone-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.fpc-zone-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; height: fit-content; }
 .fpc-pitch-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .fpc-pitch-row { display: flex; align-items: center; gap: 8px; }
 .fpc-pitch-info { display: flex; flex-direction: column; }
@@ -1221,7 +1221,7 @@ body {
     background: rgba(10,10,20,0.8);
     border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
     flex-shrink: 0;
-    overflow: visible;
+    overflow: hidden;
 }
 .mini-sz-grid {
     position: absolute;
@@ -1232,7 +1232,7 @@ body {
 }
 .mini-sz-cell { border: 0.5px solid rgba(255,255,255,0.06); }
 .mini-sz-dot {
-    position: absolute; width: 20px; height: 20px; border-radius: 50%;
+    position: absolute; width: 24px; height: 24px; border-radius: 50%;
     transform: translate(-50%, -50%); z-index: 10;
     font-size: 9px; font-weight: 800; color: white;
     display: flex; align-items: center; justify-content: center;

@@ -234,7 +234,7 @@ function renderGameTab(data){
                 </div>
                 <div class="fpc-info"><div class="fpc-count">${ct}</div><div class="fpc-batter">${batterFirst} · ${bStats?bStats.h+'/'+bStats.ab:'0/0'}, ${avg(bStats)} (${bSide})</div><div class="fpc-pitcher">${pitcherFirst} · ${pStats?pStats.ip:'0'} ip, ${pStats?pStats.k:0} k, ${pitches.length} p (${pSide})</div></div></div>
             <div class="fpc-body"><div class="fpc-call-row"><span class="fpc-badge" style="${bg}">${pitches.length}</span><span class="fpc-call">${call}</span></div><span class="fpc-type">${lp.type||''} · ${velo?velo+' mph':''}</span>
-            <div class="fpc-zone-wrap"><div class="mini-sz-zone"><div class="mini-sz-grid">${Array(9).fill('').map(()=>'<div class="mini-sz-cell"></div>').join('')}</div>${pitchDots}</div><div class="fpc-pitch-list">${pitchList}</div></div></div></div>`;
+            <div class="fpc-zone-wrap"><div class="fpc-pitch-list">${pitchList}</div><div class="mini-sz-zone"><div class="mini-sz-grid">${Array(9).fill('').map(()=>'<div class="mini-sz-cell"></div>').join('')}</div>${pitchDots}</div></div></div></div>`;
     }
 
     // Play-by-play
