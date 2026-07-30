@@ -1146,12 +1146,11 @@ body {
 .sit-bar {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
     padding: 14px 16px;
     gap: 16px;
     border-bottom: 1px solid var(--border);
 }
-.sit-bar-left { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.sit-bar-left { display: flex; flex-direction: column; gap: 8px; }
 .sit-row { display: flex; flex-direction: column; gap: 4px; }
 .sit-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .sit-player { display: flex; align-items: center; gap: 8px; }
