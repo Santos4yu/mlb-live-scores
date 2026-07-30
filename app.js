@@ -771,6 +771,8 @@ function renderGameTab(data){
     });
     const recent=feedPlays.slice(-20).reverse();
     const currentPlayCount=feedPlays.length;
+    const outsMap=new Map();
+    {let track={};feedPlays.forEach(p=>{const k=`${p.about?.inning}:${p.about?.halfInning}`;if(!track[k])track[k]=0;outsMap.set(p,track[k]);if(p.about?.hasOut)track[k]++;});}
     if(currentPlayCount>0){
         const newPlaysCount=lastPlayIndex>=0?Math.max(0,currentPlayCount-lastPlayIndex):1;
         html+=`<div class="play-feed-section">`;
@@ -785,7 +787,7 @@ function renderGameTab(data){
             else if(et.includes('home_run')){ic='hit';ix='HR';}else if(et.includes('single')||et.includes('double')||et.includes('triple')){ic='hit';ix='⚾';}
             else if(et.includes('out')||et.includes('groundout')||et.includes('flyout')||et.includes('popout')||et.includes('lineout')||et.includes('sac')){ic='out';ix='✗';}
             else if(p.about?.isScoringPlay){ic='hit';ix='🏟';}
-            const outs=p.about?.outs??ls.outs;
+            const outs=outsMap.get(p)??0;
             const innLabel=half&&inn?(half==='top'?'Top':'Bot')+' '+inn:'';
             const topLine=`${ls.score?.away??''} - ${ls.score?.home??''} · ${innLabel} · ${outs} out${outs!==1?'s':''}`;
             const batStats=p.matchup?.battingStats||{};
