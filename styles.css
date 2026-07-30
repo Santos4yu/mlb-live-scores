@@ -1269,7 +1269,7 @@ body {
     display: flex;
     align-items: center;
     padding: 14px 16px;
-    gap: 16px;
+    gap: 40px;
     border-bottom: 1px solid var(--border);
 }
 .sit-bar-left { display: flex; flex-direction: column; gap: 8px; }
