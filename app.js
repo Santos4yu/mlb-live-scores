@@ -279,8 +279,8 @@ function renderGameTab(data){
 
 function mapPitchX(x){return Math.max(0,Math.min(180,((x-19)/177)*180));}
 function mapPitchY(y){return Math.max(0,Math.min(200,((260-y)/171)*200));}
-function mapPitchMiniX(x){return Math.max(0,Math.min(180,((x+1.5)/3.0)*180));}
-function mapPitchMiniY(z){return Math.max(0,Math.min(180,((5.0-z)/5.0)*180));}
+function mapPitchMiniX(x){return Math.max(0,Math.min(180,((x+1.8)/3.6)*180));}
+function mapPitchMiniY(z){return Math.max(0,Math.min(180,((4.3-z)/3.6)*180));}
 
 function getPitchClass(p){
     const c=p.callCode||p.code||'',e=(p.eventType||'').toLowerCase();
