@@ -1587,19 +1587,3 @@ body {
     .pitch-dot-new { will-change: auto; }
     .game-alert-toast { transition: none; }
 }
-
-/* Lineup Preview */
-.lineup-preview { padding: 16px; }
-.lineup-section { margin-bottom: 24px; }
-.lineup-header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-.lineup-pitcher { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border); }
-.lineup-pitcher-img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; object-position: center center; background: var(--bg-elevated); }
-.lineup-pitcher-info { display: flex; flex-direction: column; gap: 2px; }
-.lineup-pitcher-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.lineup-pitcher-num { font-size: 12px; color: var(--text-muted); }
-.lineup-tbd { padding: 12px; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
-.lineup-table { width: 100%; border-collapse: collapse; }
-.lineup-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
-.lineup-table td { padding: 8px 12px; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid var(--border); }
-.lineup-player { display: flex; align-items: center; gap: 8px; }
-.lineup-player-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; object-position: center center; background: var(--bg-elevated); }
