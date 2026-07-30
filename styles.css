@@ -1289,9 +1289,9 @@ body {
 }
 .fpc-avatar-stack {
     position: relative;
-    width: 90px;
-    height: 76px;
-    flex: 0 0 90px;
+    width: 65px;
+    height: 56px;
+    flex: 0 0 65px;
     isolation: isolate;
 }
 .fpc-avatar {
@@ -1305,16 +1305,16 @@ body {
 .fpc-avatar-batter {
     top: 0;
     left: 0;
-    width: 66px;
-    height: 66px;
+    width: 48px;
+    height: 48px;
     z-index: 2;
     border: 3px solid var(--bg-card);
 }
 .fpc-avatar-pitcher {
-    top: 28px;
-    left: 43px;
-    width: 48px;
-    height: 48px;
+    top: 20px;
+    left: 30px;
+    width: 36px;
+    height: 36px;
     z-index: 3;
     border: 3px solid var(--accent);
     box-shadow: 0 7px 18px rgba(0,0,0,0.5), 0 0 0 2px rgba(124,58,237,0.15);
@@ -1543,9 +1543,9 @@ body {
 
 @media (max-width: 440px) {
     .fpc-top { gap: 12px; padding: 14px; }
-    .fpc-avatar-stack { width: 78px; height: 68px; flex-basis: 78px; }
-    .fpc-avatar-batter { width: 58px; height: 58px; }
-    .fpc-avatar-pitcher { top: 25px; left: 37px; width: 43px; height: 43px; }
+    .fpc-avatar-stack { width: 65px; height: 56px; flex-basis: 65px; }
+    .fpc-avatar-batter { width: 48px; height: 48px; }
+    .fpc-avatar-pitcher { top: 20px; left: 30px; width: 36px; height: 36px; }
     .fpc-batter,
     .fpc-pitcher { display: block; }
     .fpc-player-name,
