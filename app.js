@@ -999,7 +999,7 @@ async function startMultiWatchFeed(pk){
         multiWatchWatchdogs[pk]=setTimeout(startFallback,FEED_STREAM_TIMEOUT_MS);
     };
     if('EventSource'in window){
-        const source=new EventSource(`/api/game/${pk}/stream`);
+        const source=new EventSource(`/api/game/${pk}/stream?compact=1`);
         multiWatchStreams[pk]=source;
         source.addEventListener('feed',event=>{
             try{applyMultiWatchFeed(pk,JSON.parse(event.data));markStreamAlive();}catch(e){}

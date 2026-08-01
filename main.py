@@ -1286,7 +1286,37 @@ async def get_game_feed(gamePk: int, response: Response):
     return state.data
 
 
-def _sse_message(revision: str, payload: str) -> str:
+def _compact_multiwatch_payload(payload: str) -> str:
+    """Keep pitch-critical Multi-Watch data without resending full box scores."""
+    data = json.loads(payload)
+    compact = {
+        key: data.get(key)
+        for key in (
+            "gamePk", "status", "currentPlay", "currentPlayActive",
+            "linescore", "currentBatter", "currentPitcher", "feedVersion",
+            "feedOrder", "feedKind", "feedSourceTimestamp",
+        )
+    }
+    completed_plays = []
+    for play in data.get("plays") or []:
+        if not (play.get("about") or {}).get("isComplete"):
+            continue
+        matchup = play.get("matchup") or {}
+        completed_plays.append({
+            "atBatIndex": play.get("atBatIndex"),
+            "result": play.get("result"),
+            "shortResult": play.get("shortResult"),
+            "eventType": play.get("eventType"),
+            "about": play.get("about"),
+            "matchup": {"batter": matchup.get("batter") or {}},
+        })
+    compact["plays"] = completed_plays[-8:]
+    return json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+
+
+def _sse_message(revision: str, payload: str, compact: bool = False) -> str:
+    if compact:
+        payload = _compact_multiwatch_payload(payload)
     return f"id: {revision}\nevent: feed\ndata: {payload}\n\n"
 
 
@@ -1300,7 +1330,7 @@ def _feed_is_degraded(state: FeedState) -> bool:
 
 
 @app.get("/api/game/{gamePk}/stream")
-async def stream_game_feed(gamePk: int, request: Request):
+async def stream_game_feed(gamePk: int, request: Request, compact: bool = Query(False)):
     """Push feed changes immediately; all viewers of a game share one MLB poller."""
     state = _get_feed_state(gamePk)
     queue: asyncio.Queue = asyncio.Queue(maxsize=1)
@@ -1326,7 +1356,7 @@ async def stream_game_feed(gamePk: int, request: Request):
                 and state.revision != last_revision
             ):
                 last_revision = state.revision
-                yield _sse_message(state.revision, state.payload)
+                yield _sse_message(state.revision, state.payload, compact)
 
             while True:
                 if await request.is_disconnected():
@@ -1342,7 +1372,7 @@ async def stream_game_feed(gamePk: int, request: Request):
                 if revision == last_revision:
                     continue
                 last_revision = revision
-                yield _sse_message(revision, payload)
+                yield _sse_message(revision, payload, compact)
         finally:
             state.subscribers.discard(queue)
             if not state.subscribers and state.poller is not None:

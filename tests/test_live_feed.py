@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import json
 import unittest
 
 import main
@@ -229,6 +230,33 @@ class FakeClient:
 
 
 class ProcessFeedTests(unittest.TestCase):
+    def test_compact_multiwatch_payload_keeps_current_pitch_without_boxscore(self):
+        current = main._process_play(
+            raw_feed()["liveData"]["plays"]["currentPlay"]
+        )
+        completed = copy.deepcopy(current)
+        completed["about"]["isComplete"] = True
+        completed["result"] = "Singled to right"
+        payload = json.dumps({
+            "gamePk": 123,
+            "status": {"abstractGameState": "Live"},
+            "currentPlay": current,
+            "linescore": {"inning": 1},
+            "plays": [completed],
+            "boxscore": {"large": "unused"},
+            "linescoreInnings": [{"num": 1}],
+            "feedVersion": "v1",
+            "feedOrder": 10,
+        })
+
+        compact = json.loads(main._compact_multiwatch_payload(payload))
+
+        self.assertNotIn("boxscore", compact)
+        self.assertNotIn("linescoreInnings", compact)
+        self.assertEqual("pitch-1", compact["currentPlay"]["pitches"][0]["eventId"])
+        self.assertNotIn("pitches", compact["plays"][0])
+        self.assertEqual("Singled to right", compact["plays"][0]["result"])
+
     def test_forceout_description_is_short_and_position_specific(self):
         short = main._short_play_result(
             {
