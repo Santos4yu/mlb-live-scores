@@ -1281,14 +1281,13 @@ body {
 .feed-pitch-card {
     margin: 0 12px 8px;
     display: grid;
-    grid-template-columns: minmax(250px, 1fr) auto;
-    align-items: stretch;
-    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
-    border-radius: 14px;
-    border: 1px solid var(--border);
+    grid-template-columns: minmax(260px, 1fr) auto;
+    align-items: center;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-accent);
     overflow: visible;
     transition: border-color 0.3s, box-shadow 0.3s;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.12);
 }
 .feed-pitch-card.play-result-hold {
     border-color: var(--accent);
@@ -1300,9 +1299,9 @@ body {
 }
 .fpc-top {
     display: flex;
-    align-items: flex-start;
-    gap: 18px;
-    padding: 22px 24px;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
 }
 .fpc-avatar-stack {
     position: relative;
@@ -1327,18 +1326,11 @@ body {
     z-index: 2;
     border: 2px solid var(--bg-card);
 }
-.fpc-info { flex: 1; min-width: 0; padding-top: 2px; }
+.fpc-info { flex: 1; min-width: 0; }
 .fpc-count {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    padding: 0 10px;
-    margin-bottom: 10px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid var(--border);
-    font-size: 15px;
-    font-weight: 850;
+    margin-bottom: 5px;
+    font-size: 17px;
+    font-weight: 800;
     color: var(--text-primary);
 }
 .fpc-batter,
@@ -1364,10 +1356,7 @@ body {
 .fpc-body {
     display: flex;
     align-items: center;
-    padding: 18px 24px;
-    border-left: 1px solid var(--border);
-    background: rgba(0,0,0,0.06);
-    border-radius: 0 14px 14px 0;
+    padding: 14px 20px 14px 8px;
 }
 .fpc-call-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .fpc-badge {
@@ -1604,8 +1593,6 @@ body {
     .fpc-body {
         padding: 16px 18px 18px;
         border-top: 1px solid var(--border);
-        border-left: 0;
-        border-radius: 0 0 14px 14px;
     }
     .fpc-zone-wrap {
         width: 100%;
