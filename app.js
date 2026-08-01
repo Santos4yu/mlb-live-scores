@@ -109,19 +109,26 @@ function renderDatePicker(){
 }
 function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
+function isActuallyLive(game){
+    const status=game?.status||{};
+    if(status.abstract!=='Live')return false;
+    const detailed=String(status.detailed||'').toLowerCase();
+    return status.code!=='PW'&&!['warmup','pre-game','scheduled'].includes(detailed);
+}
+
 // Keep the scoreboard focused on what is happening now:
 // newly-started live games first, upcoming games next, and completed games last.
 function gameSortValue(game){
     const status=game.status?.abstract||'';
     const gameTime=Date.parse(game.gameDate)||0;
-    if(status==='Live'){
+    if(isActuallyLive(game)){
         const ls=game.linescore||{};
         const inning=Number(ls.inning)||0;
         const state=String(ls.inningState||'').toLowerCase();
         const half=state==='middle'?1:state==='end'?3:(ls.isTopInning?0:2);
         return [0,inning,half,gameTime];
     }
-    if(status==='Preview')return [1,gameTime,0,0];
+    if(status==='Preview'||status==='Live')return [1,gameTime,0,0];
     if(status==='Final')return [3,-gameTime,0,0];
     return [2,gameTime,0,0];
 }
@@ -144,12 +151,13 @@ function renderGames(games){
     const list=document.getElementById('gamesList');list.innerHTML='';document.getElementById('emptyState').style.display='none';
     if(!games||!games.length){document.getElementById('emptyState').style.display='flex';return;}
     games.sort(compareGames);
-    const liveCount=games.filter(g=>g.status?.abstract==='Live').length;
+    const liveCount=games.filter(isActuallyLive).length;
     const mwBtn=document.getElementById('multiWatchBtn');
     if(mwBtn)mwBtn.style.display=liveCount>=2?'inline-block':'none';
     games.forEach(g=>{
         const aw=g.away,hm=g.home,ls=g.linescore,st=g.status;
-        const isLive=st.abstract==='Live',isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed',isPreview=st.abstract==='Preview';
+        const isLive=isActuallyLive(g),isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed';
+        const isPreview=st.abstract==='Preview'||(!isLive&&!isFinal&&!isDelayed);
         let inningText='';
         if(isLive){const innN=ls.inning||'';const halfL=ls.inningState==='Middle'?'Mid':ls.inningState==='End'?'End':ls.isTopInning?'Top':'Bot';inningText=`${halfL} ${innN}`;}
         else if(isFinal){inningText='Final';if(ls.inning>9)inningText+=' / '+ls.inning;}
