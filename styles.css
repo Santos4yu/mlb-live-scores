@@ -228,19 +228,6 @@ body {
     position: relative;
     overflow: hidden;
 }
-.game-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: transparent;
-    transition: background 0.3s;
-}
-.game-card.live::before {
-    background: var(--accent);
-}
 .game-card.live {
     border-color: var(--border-accent);
     box-shadow: 0 0 20px rgba(0,0,0,0.08);
@@ -1293,11 +1280,15 @@ body {
 /* ── Feed Pitch Card ──────────────────────────────────────── */
 .feed-pitch-card {
     margin: 0 12px 8px;
-    background: var(--bg-card);
-    border-radius: var(--radius);
-    border: 1px solid var(--border-accent);
+    display: grid;
+    grid-template-columns: minmax(250px, 1fr) auto;
+    align-items: stretch;
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
+    border-radius: 14px;
+    border: 1px solid var(--border);
     overflow: visible;
     transition: border-color 0.3s, box-shadow 0.3s;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.12);
 }
 .feed-pitch-card.play-result-hold {
     border-color: var(--accent);
@@ -1309,9 +1300,9 @@ body {
 }
 .fpc-top {
     display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 22px 24px;
 }
 .fpc-avatar-stack {
     position: relative;
@@ -1336,8 +1327,20 @@ body {
     z-index: 2;
     border: 2px solid var(--bg-card);
 }
-.fpc-info { flex: 1; min-width: 0; }
-.fpc-count { font-size: 17px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+.fpc-info { flex: 1; min-width: 0; padding-top: 2px; }
+.fpc-count {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 850;
+    color: var(--text-primary);
+}
 .fpc-batter,
 .fpc-pitcher {
     display: flex;
@@ -1358,7 +1361,14 @@ body {
 }
 .fpc-pitcher .fpc-player-name { color: var(--text-secondary); }
 .fpc-player-meta { flex-shrink: 0; white-space: nowrap; }
-.fpc-body { padding: 0 16px 14px; }
+.fpc-body {
+    display: flex;
+    align-items: center;
+    padding: 18px 24px;
+    border-left: 1px solid var(--border);
+    background: rgba(0,0,0,0.06);
+    border-radius: 0 14px 14px 0;
+}
 .fpc-call-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .fpc-badge {
     width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -1367,8 +1377,13 @@ body {
 .fpc-badge-sm { width: 22px; height: 22px; font-size: 10px; }
 .fpc-call { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .fpc-type { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 10px; }
-.fpc-zone-wrap { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
-.fpc-pitch-list { display: flex; flex-direction: column; gap: 6px; }
+.fpc-zone-wrap { display: flex; flex-direction: row; align-items: center; gap: 20px; }
+.fpc-pitch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 112px;
+}
 .fpc-pitch-row { display: flex; align-items: center; gap: 8px; }
 .fpc-pitch-info { display: flex; flex-direction: column; }
 .fpc-pitch-call { font-size: 13px; font-weight: 700; color: var(--text-primary); }
@@ -1576,6 +1591,25 @@ body {
     .game-alert-toast-region {
         top: calc(env(safe-area-inset-top, 0px) + 104px);
         width: calc(100vw - 18px);
+    }
+}
+
+@media (max-width: 720px) {
+    .feed-pitch-card {
+        display: block;
+    }
+    .fpc-top {
+        padding: 18px;
+    }
+    .fpc-body {
+        padding: 16px 18px 18px;
+        border-top: 1px solid var(--border);
+        border-left: 0;
+        border-radius: 0 0 14px 14px;
+    }
+    .fpc-zone-wrap {
+        width: 100%;
+        justify-content: space-between;
     }
 }
 

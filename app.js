@@ -109,6 +109,31 @@ function renderDatePicker(){
 }
 function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
+// Keep the scoreboard focused on what is happening now:
+// newly-started live games first, upcoming games next, and completed games last.
+function gameSortValue(game){
+    const status=game.status?.abstract||'';
+    const gameTime=Date.parse(game.gameDate)||0;
+    if(status==='Live'){
+        const ls=game.linescore||{};
+        const inning=Number(ls.inning)||0;
+        const state=String(ls.inningState||'').toLowerCase();
+        const half=state==='middle'?1:state==='end'?3:(ls.isTopInning?0:2);
+        return [0,inning,half,gameTime];
+    }
+    if(status==='Preview')return [1,gameTime,0,0];
+    if(status==='Final')return [3,-gameTime,0,0];
+    return [2,gameTime,0,0];
+}
+
+function compareGames(a,b){
+    const aKey=gameSortValue(a),bKey=gameSortValue(b);
+    for(let i=0;i<aKey.length;i++){
+        if(aKey[i]!==bKey[i])return aKey[i]-bKey[i];
+    }
+    return (Number(a.gamePk)||0)-(Number(b.gamePk)||0);
+}
+
 async function loadGames(silent=false){
     if(!silent)showLoading();
     try{const r=await fetch(`${API}/api/schedule?date=${fmtDate(currentDate)}`);const d=await r.json();if(!silent)hideLoading();renderGames(d.games);}
@@ -118,19 +143,7 @@ async function loadGames(silent=false){
 function renderGames(games){
     const list=document.getElementById('gamesList');list.innerHTML='';document.getElementById('emptyState').style.display='none';
     if(!games||!games.length){document.getElementById('emptyState').style.display='flex';return;}
-    try{games.sort((a,b)=>{
-        const aSt=a.status?.abstract||'',bSt=b.status?.abstract||'';
-        const aLive=aSt==='Live',bLive=bSt==='Live';
-        const aFinal=aSt==='Final',bFinal=bSt==='Final';
-        if(aLive&&!bLive)return-1;if(!aLive&&bLive)return1;
-        if(aLive&&bLive){
-            const aInn=(a.linescore?.inning||0)+(a.linescore?.isTopInning?0:0.5);
-            const bInn=(b.linescore?.inning||0)+(b.linescore?.isTopInning?0:0.5);
-            return aInn-bInn;
-        }
-        if(aFinal&&!bFinal)return1;if(!aFinal&&bFinal)return-1;
-        return new Date(a.gameDate||0)-new Date(b.gameDate||0);
-    });}catch(e){}
+    games.sort(compareGames);
     const liveCount=games.filter(g=>g.status?.abstract==='Live').length;
     const mwBtn=document.getElementById('multiWatchBtn');
     if(mwBtn)mwBtn.style.display=liveCount>=2?'inline-block':'none';
