@@ -972,7 +972,6 @@ function startMultiWatch(){
         div.className='mw-panel';
         div.id='mw-'+g.gamePk;
         div.innerHTML='<div class="loading-state"><div class="spinner"></div></div>';
-        div.onclick=()=>{closeMultiWatch();openGameCenter(g.gamePk,g.away,g.home,'Live');};
         grid.appendChild(div);
         startMultiWatchFeed(g.gamePk);
     });
@@ -995,40 +994,72 @@ async function startMultiWatchFeed(pk){
 function renderMWPanel(pk,data){
     const el=document.getElementById('mw-'+pk);
     if(!el)return;
+    const game=multiWatchGames.find(g=>g.gamePk===pk);
+    if(!game)return;
     const ls=data.linescore||{};
     const st=data.status||{};
     const isLive=st.abstractGameState==='Live';
     const isFinal=st.abstractGameState==='Final';
     const offense=ls.offense||{};
     const defense=ls.defense||{};
-    const aw=currentGame?.away||{abbr:'Away',name:''};
-    const hm=currentGame?.home||{abbr:'Home',name:''};
+    const aw=game.away||{abbr:'Away',name:''};
+    const hm=game.home||{abbr:'Home',name:''};
     const score=ls.score||{};
     const halfLabel=ls.inningState==='Middle'?'Mid':ls.inningState==='End'?'End':ls.isTopInning?'Top':'Bot';
     const innText=isLive?`${halfLabel} ${ls.inning||''}`:isFinal?'Final':'';
     const awScore=score.away??'';
     const hmScore=score.home??'';
-    const pitcherName=defense.pitcher?.fullName||'';
-    const batterName=offense.batter?.fullName||'';
-    let html=`<div class="mw-header">`;
-    html+=`<div class="mw-team"><span class="mw-abbr">${currentGame?.away?.abbr||''}</span><span class="mw-score">${awScore}</span></div>`;
-    html+=`<span class="mw-status">${innText}</span>`;
-    html+=`<div class="mw-team right"><span class="mw-score">${hmScore}</span><span class="mw-abbr">${currentGame?.home?.abbr||''}</span></div>`;
+    const batter=data.currentBatter?.id?data.currentBatter:(offense.batter||{});
+    const pitcher=data.currentPitcher?.id?data.currentPitcher:(defense.pitcher||{});
+    const pitches=uniquePitchEvents(data.currentPlay?.pitches);
+    const lastPitch=pitches[pitches.length-1];
+    const balls=lastPitch?.count?.balls??ls.balls??0;
+    const strikes=lastPitch?.count?.strikes??ls.strikes??0;
+    const pitchList=pitches.slice().reverse().map(p=>{
+        const cls=getPitchClass(p),bg=getPitchBg(cls);
+        const velo=p.startSpeed?Math.round(p.startSpeed)+' mph':'';
+        return`<div class="mw-pitch-row"><span class="fpc-badge fpc-badge-sm" style="${bg}">${p.pitchNumber||''}</span><div><strong>${p.call||p.description||''}</strong><span>${p.type||''}${velo?` · ${velo}`:''}</span></div></div>`;
+    }).join('');
+    const visiblePitches=pitches.filter(p=>(p.px!=null&&p.pz!=null)||(p.x!=null&&p.y!=null));
+    const pitchDots=visiblePitches.map(p=>{
+        const px=p.px!=null?mapPitchMiniX(p.px):mapPitchMiniX(((p.x||125)-80)/90*1.7-0.85);
+        const py=p.pz!=null?mapPitchMiniY(p.pz,p.szTop,p.szBottom):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
+        return`<div class="mini-sz-dot ${getPitchClass(p)}" style="left:${px}px;top:${py}px">${p.pitchNumber||''}</div>`;
+    }).join('');
+    const recent=(data.plays||[]).filter(p=>p.about?.isComplete&&Boolean(p.shortResult||p.result)).slice(-8).reverse();
+    let html=`<div class="mw-game-header" onclick="openMultiWatchGame(${pk})" title="Open full game">
+        <div class="mw-team-block">${teamLogoImg(aw.abbr,aw.id,34)}<div><strong>${aw.abbr}</strong><span>${aw.name||''}</span></div></div>
+        <span class="mw-game-score">${awScore}</span>
+        <div class="mw-game-state"><strong>${innText}</strong><span>${ls.outs??0} out${ls.outs===1?'':'s'}</span></div>
+        <span class="mw-game-score">${hmScore}</span>
+        <div class="mw-team-block right">${teamLogoImg(hm.abbr,hm.id,34)}<div><strong>${hm.abbr}</strong><span>${hm.name||''}</span></div></div>
+    </div><div class="mw-game-scroll">`;
+    if(isLive)html+=`<div class="mw-situation">
+        <div class="mw-next"><span>On deck</span><strong>${offense.onDeck?.fullName||'—'}</strong><span>In the hole</span><strong>${offense.inHole?.fullName||'—'}</strong></div>
+        <div class="mw-diamond diamond-large">
+            <div class="base base-pos first ${offense.first?'occupied':''}">${offense.first?`<img src="${playerHeadshotUrl(offense.first.id)}" class="base-avatar" alt="">`:''}</div>
+            <div class="base base-pos second ${offense.second?'occupied':''}">${offense.second?`<img src="${playerHeadshotUrl(offense.second.id)}" class="base-avatar" alt="">`:''}</div>
+            <div class="base base-pos third ${offense.third?'occupied':''}">${offense.third?`<img src="${playerHeadshotUrl(offense.third.id)}" class="base-avatar" alt="">`:''}</div>
+        </div>
+    </div>`;
+    if(batter.id)html+=`<div class="mw-live-card">
+        <div class="mw-player-current"><img src="${playerHeadshotUrl(batter.id,140)}" alt=""><div><strong>${balls} ball${balls===1?'':'s'}, ${strikes} strike${strikes===1?'':'s'}</strong><span>${batter.fullName||''}</span><small>${pitcher.fullName?`Pitching: ${pitcher.fullName}`:''}</small></div></div>
+        <div class="mw-pitch-area"><div class="mw-pitch-list">${pitchList}</div><div class="mini-sz-zone"><div class="mini-sz-grid">${Array(9).fill('').map(()=>'<div class="mini-sz-cell"></div>').join('')}</div>${pitchDots}</div></div>
+    </div>`;
+    if(recent.length)html+=`<div class="mw-play-feed">${recent.map(p=>{
+        const half=p.about?.halfInning==='top'?'Top':'Bot';
+        const player=p.matchup?.batter||{};
+        return`<div class="mw-play-row"><img src="${playerHeadshotUrl(player.id)}" alt=""><div><span>${half} ${p.about?.inning||''}</span><strong>${p.shortResult||p.result||''}</strong><small>${player.fullName||''}</small></div></div>`;
+    }).join('')}</div>`;
     html+=`</div>`;
-    html+=`<div class="mw-bottom">`;
-    html+=`<div class="diamond" style="width:24px;height:24px">`;
-    html+=`<div class="diamond-base first ${offense.first?'occupied':''}" style="width:6px;height:6px"></div>`;
-    html+=`<div class="diamond-base second ${offense.second?'occupied':''}" style="width:6px;height:6px"></div>`;
-    html+=`<div class="diamond-base third ${offense.third?'occupied':''}" style="width:6px;height:6px"></div>`;
-    html+=`</div>`;
-    html+=`<div class="bso-dots" style="gap:4px">`;
-    html+=`<div class="bso-group"><div class="bso-circles">${[1,2,3,4].map(b=>`<div class="bso-circle" style="width:6px;height:6px ${b<=ls.balls?`;background:var(--ball-color)`:''}"></div>`).join('')}</div><span class="bso-label" style="font-size:8px">B</span></div>`;
-    html+=`<div class="bso-group"><div class="bso-circles">${[1,2,3].map(s=>`<div class="bso-circle" style="width:6px;height:6px ${s<=ls.strikes?`;background:var(--strike-color)`:''}"></div>`).join('')}</div><span class="bso-label" style="font-size:8px">S</span></div>`;
-    html+=`<div class="bso-group"><div class="bso-circles">${[1,2,3].map(o=>`<div class="bso-circle" style="width:6px;height:6px ${o<=ls.outs?`;background:var(--text-primary)`:''}"></div>`).join('')}</div><span class="bso-label" style="font-size:8px">O</span></div>`;
-    html+=`</div>`;
-    html+=`</div>`;
-    if(pitcherName)html+=`<div class="mw-pitcher">${pitcherName}</div>`;
     el.innerHTML=html;
+}
+
+function openMultiWatchGame(pk){
+    const game=multiWatchGames.find(g=>g.gamePk===pk);
+    if(!game)return;
+    closeMultiWatch();
+    openGameCenter(game.gamePk,game.away,game.home);
 }
 
 function closeMultiWatch(){

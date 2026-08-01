@@ -1958,3 +1958,111 @@ body {
 .multi-selectable { cursor: pointer; }
 .multi-selectable:hover { border-color: var(--accent); }
 .multi-selected { border: 2px solid var(--accent) !important; box-shadow: 0 0 12px var(--accent-glow); }
+
+/* Full game-center views inside Multi-Watch */
+.multiwatch-grid {
+    gap: 10px;
+    padding: 10px;
+    height: calc(100vh - 58px);
+}
+.multiwatch-grid.grid-2 { grid-template-rows: 1fr; }
+.mw-panel {
+    min-width: 0;
+    padding: 0;
+    gap: 0;
+    background: var(--bg-primary);
+    cursor: default;
+}
+.mw-game-header {
+    display: grid;
+    grid-template-columns: minmax(100px,1fr) 36px minmax(68px,auto) 36px minmax(100px,1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+}
+.mw-game-header:hover { background: var(--bg-elevated); }
+.mw-team-block { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mw-team-block.right { flex-direction: row-reverse; text-align: right; }
+.mw-team-block img,
+.mw-team-block .team-logo { width: 34px; height: 34px; flex: 0 0 34px; }
+.mw-team-block div { display: flex; flex-direction: column; min-width: 0; }
+.mw-team-block strong { font-size: 13px; }
+.mw-team-block span { overflow: hidden; color: var(--text-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.mw-game-score { font-size: 25px; font-weight: 900; text-align: center; }
+.mw-game-state { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mw-game-state strong { color: var(--live-red); font-size: 10px; }
+.mw-game-state span { color: var(--text-muted); font-size: 9px; }
+.mw-game-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    overflow-y: auto;
+}
+.mw-situation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 112px;
+    padding: 10px 18px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+.mw-next { display: grid; grid-template-columns: auto minmax(80px,1fr); align-items: baseline; gap: 5px 9px; min-width: 0; }
+.mw-next span { color: var(--text-muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.mw-next strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.mw-diamond { flex: 0 0 112px; }
+.mw-live-card {
+    display: grid;
+    grid-template-columns: minmax(210px,1fr) auto;
+    align-items: center;
+    min-height: 204px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+.mw-player-current { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mw-player-current > img { width: 72px; height: 86px; object-fit: contain; object-position: center bottom; }
+.mw-player-current div { display: flex; flex-direction: column; min-width: 0; }
+.mw-player-current strong { font-size: 15px; }
+.mw-player-current span { margin-top: 5px; font-size: 12px; font-weight: 750; }
+.mw-player-current small { margin-top: 3px; color: var(--text-muted); font-size: 9px; }
+.mw-pitch-area { display: flex; align-items: center; gap: 14px; }
+.mw-pitch-list { display: flex; flex-direction: column; gap: 6px; min-width: 112px; }
+.mw-pitch-list:empty { display: none; }
+.mw-pitch-row { display: flex; align-items: center; gap: 7px; }
+.mw-pitch-row > div { display: flex; flex-direction: column; }
+.mw-pitch-row strong { font-size: 10px; }
+.mw-pitch-row span { color: var(--text-muted); font-size: 8px; }
+.mw-play-feed {
+    padding: 2px 12px;
+    background: rgba(255,255,255,0.012);
+    border-radius: 14px;
+}
+.mw-play-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
+.mw-play-row:last-child { border-bottom: 0; }
+.mw-play-row > img { width: 38px; height: 42px; object-fit: contain; object-position: center bottom; }
+.mw-play-row > div { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.mw-play-row span { padding: 2px 5px; color: var(--text-muted); background: var(--bg-elevated); border-radius: 4px; font-size: 8px; text-transform: uppercase; }
+.mw-play-row strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.mw-play-row small { grid-column: 2; color: var(--text-muted); font-size: 9px; }
+
+@media (max-width: 1100px) {
+    .mw-live-card { grid-template-columns: 1fr; gap: 10px; }
+    .mw-pitch-area { justify-content: center; }
+}
+
+@media (max-width: 760px) {
+    .multiwatch-grid,
+    .grid-2,
+    .grid-3,
+    .grid-4 { display: flex; flex-direction: column; height: auto; }
+    .mw-panel { min-height: 78vh; }
+    .mw-game-header { grid-template-columns: minmax(70px,1fr) 30px minmax(56px,auto) 30px minmax(70px,1fr); }
+    .mw-team-block span { display: none; }
+    .mw-situation { padding: 8px 12px; }
+}
