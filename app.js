@@ -67,7 +67,7 @@ function teamId(a){return(TEAM_COLORS[a]||{}).id;}
 function teamLogoUrl(a,id){const t=id||teamId(a);return t?`https://www.mlbstatic.com/team-logos/${t}.svg`:'';}
 function playerHeadshotUrl(p,size=96){
     const width=Math.max(80,Math.round(size));
-    return p?`https://img.mlbstatic.com/mlb-photos/image/upload/w_${width},q_auto:best/v1/people/${p}/headshot/67/current`:'';
+    return p?`https://img.mlbstatic.com/mlb-photos/image/upload/w_${width},q_auto:best/v1/people/${p}/headshot/silo/current`:'';
 }
 function teamLogoImg(a,id,s){
     s=s||24;const u=teamLogoUrl(a,id);

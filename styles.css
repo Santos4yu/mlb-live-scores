@@ -1863,6 +1863,23 @@ body {
 [data-theme="light"] .mini-sz-grid { border-color: rgba(0,0,0,0.28); }
 [data-theme="light"] .mini-sz-cell { border-color: rgba(0,0,0,0.08); }
 
+/* Official MLB transparent player cutouts */
+.sit-avatar,
+.fpc-avatar,
+.feed-avatar,
+.play-headshot,
+.player-headshot,
+.lineup-headshot,
+.base-avatar {
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    object-fit: contain;
+    object-position: center bottom;
+    box-shadow: none;
+}
+.fpc-avatar-batter { border: 0; }
+
 /* Multi-Watch */
 .multiwatch-grid { display: grid; gap: 8px; padding: 8px; height: calc(100vh - 56px); }
 .grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
