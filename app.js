@@ -923,6 +923,8 @@ function renderTeamTab(data,side){
 // ── MULTI-WATCH ──────────────────────────────────────────────
 let multiWatchGames=[];
 let multiWatchTimers={};
+let multiWatchStreams={};
+let multiWatchWatchdogs={};
 let multiWatchData={};
 let multiWatchSelectMode=false;
 
@@ -978,22 +980,50 @@ function startMultiWatch(){
 }
 
 async function startMultiWatchFeed(pk){
-    const render=async()=>{
+    const poll=async()=>{
         try{
-            const r=await fetch(`${API}/api/game/${pk}/feed`);
+            const r=await fetch(`${API}/api/game/${pk}/feed`,{cache:'no-store'});
             if(!r.ok)return;
             const d=await r.json();
-            multiWatchData[pk]=d;
-            renderMWPanel(pk,d);
+            applyMultiWatchFeed(pk,d);
         }catch(e){}
     };
-    await render();
-    multiWatchTimers[pk]=setInterval(render,1000);
+    const startFallback=()=>{
+        if(multiWatchTimers[pk])return;
+        poll();
+        multiWatchTimers[pk]=setInterval(poll,FEED_FALLBACK_MS);
+    };
+    const markStreamAlive=()=>{
+        if(multiWatchTimers[pk]){clearInterval(multiWatchTimers[pk]);delete multiWatchTimers[pk];}
+        if(multiWatchWatchdogs[pk])clearTimeout(multiWatchWatchdogs[pk]);
+        multiWatchWatchdogs[pk]=setTimeout(startFallback,FEED_STREAM_TIMEOUT_MS);
+    };
+    if('EventSource'in window){
+        const source=new EventSource(`/api/game/${pk}/stream`);
+        multiWatchStreams[pk]=source;
+        source.addEventListener('feed',event=>{
+            try{applyMultiWatchFeed(pk,JSON.parse(event.data));markStreamAlive();}catch(e){}
+        });
+        source.addEventListener('heartbeat',markStreamAlive);
+        source.addEventListener('feed-error',startFallback);
+        source.onerror=startFallback;
+        multiWatchWatchdogs[pk]=setTimeout(startFallback,FEED_STREAM_TIMEOUT_MS);
+    }else startFallback();
 }
 
-function renderMWPanel(pk,data){
+function applyMultiWatchFeed(pk,data){
+    const previous=multiWatchData[pk];
+    if(previous&&data.feedVersion&&data.feedVersion===previous.feedVersion)return;
+    const nextOrder=Number(data.feedOrder)||0,previousOrder=Number(previous?.feedOrder)||0;
+    if(nextOrder&&previousOrder&&nextOrder<=previousOrder)return;
+    multiWatchData[pk]=data;
+    renderMWPanel(pk,data,previous);
+}
+
+function renderMWPanel(pk,data,previousData=null){
     const el=document.getElementById('mw-'+pk);
     if(!el)return;
+    const priorScroll=el.querySelector('.mw-game-scroll')?.scrollTop||0;
     const game=multiWatchGames.find(g=>g.gamePk===pk);
     if(!game)return;
     const ls=data.linescore||{};
@@ -1012,19 +1042,24 @@ function renderMWPanel(pk,data){
     const batter=data.currentBatter?.id?data.currentBatter:(offense.batter||{});
     const pitcher=data.currentPitcher?.id?data.currentPitcher:(defense.pitcher||{});
     const pitches=uniquePitchEvents(data.currentPlay?.pitches);
+    const newestPitchId=latestPitchEventId(data);
+    const previousPitchId=latestPitchEventId(previousData);
+    const hasNewPitch=Boolean(newestPitchId&&newestPitchId!==previousPitchId);
     const lastPitch=pitches[pitches.length-1];
     const balls=lastPitch?.count?.balls??ls.balls??0;
     const strikes=lastPitch?.count?.strikes??ls.strikes??0;
-    const pitchList=pitches.slice().reverse().map(p=>{
+    const pitchList=pitches.slice().reverse().map((p,index)=>{
         const cls=getPitchClass(p),bg=getPitchBg(cls);
         const velo=p.startSpeed?Math.round(p.startSpeed)+' mph':'';
-        return`<div class="mw-pitch-row"><span class="fpc-badge fpc-badge-sm" style="${bg}">${p.pitchNumber||''}</span><div><strong>${p.call||p.description||''}</strong><span>${p.type||''}${velo?` · ${velo}`:''}</span></div></div>`;
+        return`<div class="mw-pitch-row${hasNewPitch&&index===0?' mw-pitch-row-new':''}"><span class="fpc-badge fpc-badge-sm" style="${bg}">${p.pitchNumber||''}</span><div><strong>${p.call||p.description||''}</strong><span>${p.type||''}${velo?` · ${velo}`:''}</span></div></div>`;
     }).join('');
     const visiblePitches=pitches.filter(p=>(p.px!=null&&p.pz!=null)||(p.x!=null&&p.y!=null));
-    const pitchDots=visiblePitches.map(p=>{
+    const pitchDots=visiblePitches.map((p,index)=>{
         const px=p.px!=null?mapPitchMiniX(p.px):mapPitchMiniX(((p.x||125)-80)/90*1.7-0.85);
         const py=p.pz!=null?mapPitchMiniY(p.pz,p.szTop,p.szBottom):mapPitchMiniY(3.0-((p.y||150)-85)/130*3.0+1.0);
-        return`<div class="mini-sz-dot ${getPitchClass(p)}" style="left:${px}px;top:${py}px">${p.pitchNumber||''}</div>`;
+        const isNewest=hasNewPitch&&index===visiblePitches.length-1;
+        const flightX=(75-px).toFixed(2),flightY=(-80).toFixed(2);
+        return`<div class="mini-sz-dot ${getPitchClass(p)}${isNewest?' mw-pitch-dot-new':''}" style="left:${px}px;top:${py}px;--pitch-flight-x:${flightX}px;--pitch-flight-y:${flightY}px">${p.pitchNumber||''}</div>`;
     }).join('');
     const recent=(data.plays||[]).filter(p=>p.about?.isComplete&&Boolean(p.shortResult||p.result)).slice(-8).reverse();
     let html=`<div class="mw-game-header" onclick="openMultiWatchGame(${pk})" title="Open full game">
@@ -1053,6 +1088,8 @@ function renderMWPanel(pk,data){
     }).join('')}</div>`;
     html+=`</div>`;
     el.innerHTML=html;
+    const scroller=el.querySelector('.mw-game-scroll');
+    if(scroller)scroller.scrollTop=priorScroll;
 }
 
 function openMultiWatchGame(pk){
@@ -1064,6 +1101,8 @@ function openMultiWatchGame(pk){
 
 function closeMultiWatch(){
     Object.keys(multiWatchTimers).forEach(pk=>{clearInterval(multiWatchTimers[pk]);delete multiWatchTimers[pk];});
+    Object.keys(multiWatchStreams).forEach(pk=>{multiWatchStreams[pk].close();delete multiWatchStreams[pk];});
+    Object.keys(multiWatchWatchdogs).forEach(pk=>{clearTimeout(multiWatchWatchdogs[pk]);delete multiWatchWatchdogs[pk];});
     multiWatchData={};
     multiWatchSelectMode=false;
     document.getElementById('multiwatchGrid').innerHTML='';

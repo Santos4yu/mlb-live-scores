@@ -2038,6 +2038,15 @@ body {
 .mw-pitch-row > div { display: flex; flex-direction: column; }
 .mw-pitch-row strong { font-size: 10px; }
 .mw-pitch-row span { color: var(--text-muted); font-size: 8px; }
+.mw-pitch-row-new { animation: mwPitchRowIn 0.24s ease-out both; }
+.mw-pitch-dot-new {
+    animation: pitchFlight 0.56s cubic-bezier(0.17,0.78,0.22,1) both;
+    will-change: opacity, transform;
+}
+@keyframes mwPitchRowIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .mw-play-feed {
     padding: 2px 12px;
     background: rgba(255,255,255,0.012);
@@ -2065,4 +2074,9 @@ body {
     .mw-game-header { grid-template-columns: minmax(70px,1fr) 30px minmax(56px,auto) 30px minmax(70px,1fr); }
     .mw-team-block span { display: none; }
     .mw-situation { padding: 8px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mw-pitch-row-new,
+    .mw-pitch-dot-new { animation: none; }
 }
