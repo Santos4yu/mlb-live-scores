@@ -1733,6 +1733,7 @@ body {
 .fpc-body { padding: 14px 22px 14px 8px; }
 .fpc-zone-wrap { gap: 18px; }
 .fpc-pitch-list { gap: 9px; min-width: 120px; }
+.fpc-pitch-list:empty { display: none; }
 .fpc-pitch-row { gap: 9px; }
 .fpc-pitch-call { font-size: 12px; }
 .mini-sz-zone {
@@ -1817,8 +1818,32 @@ body {
     .gc-content { padding-top: 10px; }
     .sit-bar-left { grid-template-columns: 1fr; }
     .sit-bar { align-items: center; }
+    .diamond-wrap {
+        flex: 0 0 116px;
+        display: flex;
+        justify-content: center;
+        margin-right: 8px;
+    }
     .feed-pitch-card { box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-    .fpc-body { border-top-color: var(--border); }
+    .fpc-body {
+        justify-content: center;
+        border-top-color: var(--border);
+    }
+    .fpc-zone-wrap { justify-content: center; }
+}
+
+@media (min-width: 721px) and (max-width: 900px) {
+    .diamond-wrap {
+        flex: 0 0 120px;
+        display: flex;
+        justify-content: center;
+        margin-right: 12px;
+    }
+    .feed-pitch-card {
+        grid-template-columns: minmax(280px, 1fr) minmax(260px, 0.72fr);
+    }
+    .fpc-body { justify-content: center; padding-left: 14px; padding-right: 18px; }
+    .fpc-zone-wrap { justify-content: center; }
 }
 
 @media (max-width: 440px) {
@@ -1828,7 +1853,7 @@ body {
     .diamond-large .base { width: 25px; height: 25px; }
     .fpc-zone-wrap { gap: 12px; }
     .fpc-pitch-list { min-width: 104px; }
-    .mini-sz-zone { transform: scale(0.9); transform-origin: right center; margin-left: -15px; }
+    .mini-sz-zone { transform: scale(0.9); transform-origin: center; }
     .play-feed-section { margin-left: 8px; margin-right: 8px; padding: 2px 8px; }
 }
 
