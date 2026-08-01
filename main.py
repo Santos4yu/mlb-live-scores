@@ -416,16 +416,20 @@ async def _refresh_full_feed(
         ):
             required_timestamp = state.source_timestamp
 
-        # Never let a lagging CDN snapshot overwrite a pitch already pushed.
-        if required_timestamp and (
-            full_timestamp is None or full_timestamp < required_timestamp
-        ):
-            return False
-
         result = _process_feed(game_pk, raw)
         result_hot_revision = _hot_revision(result)
+        full_is_behind = bool(
+            required_timestamp
+            and (full_timestamp is None or full_timestamp < required_timestamp)
+        )
         full_timestamp = full_timestamp or expected_timestamp
-        if (
+        if full_is_behind:
+            # The large endpoint can trail the projected endpoint by a pitch
+            # while still being the only source of completed play history.
+            # Accept that richer history, then lay the latest pitch-critical
+            # state back over it so the live display never moves backward.
+            result = _overlay_hot_projection(result, state.data or {})
+        elif (
             state.data is not None
             and full_timestamp is not None
             and full_timestamp == state.source_timestamp
@@ -448,8 +452,10 @@ async def _refresh_full_feed(
         state.last_full_success_at = time.monotonic()
         _store_processed_feed(state, result, "full")
         # A valid, current full response is successful even when its logical
-        # payload is identical and therefore does not need publishing.
-        return True
+        # payload is identical and therefore does not need publishing. A
+        # lagging response still enriches history, but remains retryable so a
+        # fully current large snapshot can catch up on the next opportunity.
+        return not full_is_behind
 
 
 async def _run_full_enrichment(

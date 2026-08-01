@@ -194,6 +194,7 @@ class FakeClient:
         self.full_event_override = None
         self.pitch = {"pitch_number": 1}
         self.full_pitch_override = None
+        self.full_history = []
 
     async def get(self, url, **kwargs):
         params = kwargs.get("params") or {}
@@ -217,6 +218,11 @@ class FakeClient:
             else self.pitch
         )
         response = raw_feed(timestamp, event_id, **pitch)
+        if self.full_history:
+            response["liveData"]["plays"]["allPlays"] = (
+                copy.deepcopy(self.full_history)
+                + response["liveData"]["plays"]["allPlays"]
+            )
         if self.full_delay:
             await asyncio.sleep(self.full_delay)
         return FakeResponse(response)
@@ -881,6 +887,32 @@ class RefreshFeedTests(unittest.IsolatedAsyncioTestCase):
         pitch = state.data["currentPlay"]["pitches"][0]
         self.assertEqual("pitch-2", pitch["eventId"])
         self.assertEqual(2, pitch["pitchNumber"])
+
+    async def test_older_full_feed_adds_history_without_moving_pitch_back(self):
+        state = await main._refresh_feed_if_changed(123, force_full=True)
+        completed = raw_feed()["liveData"]["plays"]["currentPlay"]
+        completed["atBatIndex"] = -1
+        completed["about"]["isComplete"] = True
+        completed["result"] = {
+            "eventType": "single",
+            "description": "Batter singles.",
+        }
+        self.client.full_history = [completed]
+        self.client.timestamp = "20260730_010002"
+        self.client.event_id = "pitch-2"
+        self.client.pitch = {"pitch_number": 2}
+        self.client.full_timestamp_override = "20260730_010001"
+        self.client.full_event_override = "pitch-1"
+        self.client.full_pitch_override = {"pitch_number": 1}
+        self.make_full_refresh_due(state)
+
+        await main._refresh_feed_if_changed(123, min_check_age=0)
+        await self.await_enrichment(state)
+
+        self.assertEqual("pitch-2", state.data["currentPlay"]["pitches"][0]["eventId"])
+        self.assertEqual(2, len(state.data["plays"]))
+        self.assertTrue(state.data["plays"][0]["about"]["isComplete"])
+        self.assertEqual("full", state.data["feedKind"])
 
     async def test_rapid_timestamps_retain_only_latest_queued_enrichment(self):
         state = await main._refresh_feed_if_changed(123, force_full=True)
