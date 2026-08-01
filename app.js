@@ -583,11 +583,14 @@ function showNextGameAlert(){
     const alert=gameAlertQueue.shift();
     activeTransientAlert=alert;
     activeTransientAlertKey=alert.key;
+    const alertDescription=String(alert.description||'').trim();
+    const normalizedAlertText=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    const showAlertDescription=alertDescription&&normalizedAlertText(alertDescription)!==normalizedAlertText(alert.title);
     region.innerHTML=`<div class="game-alert-toast game-alert-toast--${alert.kind}" role="status">
         <div class="game-alert-toast-icon">${gameAlertIcon(alert.kind)}</div>
         <div class="game-alert-toast-copy">
             <div class="game-alert-toast-heading"><strong>${escapeAlertText(alert.title)}</strong>${alert.inning?`<span>${escapeAlertText(alert.inning)}</span>`:''}</div>
-            ${alert.description?`<p>${escapeAlertText(alert.description)}</p>`:''}
+            ${showAlertDescription?`<p>${escapeAlertText(alertDescription)}</p>`:''}
         </div>
     </div>`;
     const toast=region.firstElementChild;

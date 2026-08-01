@@ -1880,6 +1880,50 @@ body {
 }
 .fpc-avatar-batter { border: 0; }
 
+/* Compact broadcast alerts */
+.game-alert-toast-region { width: min(400px, calc(100vw - 24px)); }
+.game-alert-toast {
+    gap: 10px;
+    min-height: 52px;
+    padding: 9px 11px;
+    background: rgba(17,17,24,0.98);
+    border: 1px solid var(--border-accent);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.28);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.game-alert-toast--mound { --alert-color: #f59e0b; }
+.game-alert-toast-icon {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    border: 0;
+    border-radius: 8px;
+}
+.game-alert-toast-icon svg { width: 18px; height: 18px; }
+.game-alert-toast-heading strong { font-size: 12px; }
+.game-alert-toast-heading span {
+    padding: 3px 6px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border-radius: 999px;
+    font-size: 9px;
+}
+.game-alert-toast-copy p { font-size: 10px; }
+[data-theme="light"] .game-alert-toast { background: rgba(255,255,255,0.98); }
+
+/* Larger bases with runner cutouts contained inside */
+.diamond-large { width: 98px; height: 98px; }
+.diamond-large .base { width: 36px; height: 36px; border-radius: 5px; }
+.base-avatar { width: 30px; height: 30px; }
+
+@media (max-width: 440px) {
+    .diamond-large { width: 88px; height: 88px; }
+    .diamond-large .base { width: 32px; height: 32px; }
+    .base-avatar { width: 27px; height: 27px; }
+}
+
 /* Multi-Watch */
 .multiwatch-grid { display: grid; gap: 8px; padding: 8px; height: calc(100vh - 56px); }
 .grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
