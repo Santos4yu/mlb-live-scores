@@ -1,8 +1,7 @@
 import httpx
 from dataclasses import dataclass, field
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 import asyncio, hashlib, json, logging, os, time
 
@@ -1427,7 +1426,30 @@ async def get_standings():
 
 @app.get("/")
 def serve_index():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "index.html"),
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+PUBLIC_ASSETS = {
+    "app.js": "application/javascript",
+    "styles.css": "text/css",
+    "krazy.css": "text/css",
+    "josoicon.png": "image/png",
+}
+
+
+@app.get("/{asset_name}")
+def serve_public_asset(asset_name: str):
+    media_type = PUBLIC_ASSETS.get(asset_name)
+    if media_type is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), asset_name),
+        media_type=media_type,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 
 @app.on_event("shutdown")
@@ -1445,8 +1467,6 @@ async def close_live_feed_client():
     if _client is not None and not _client.is_closed:
         await _client.aclose()
 
-
-app.mount("/", StaticFiles(directory=os.path.dirname(__file__)), name="static")
 
 if __name__ == "__main__":
     import uvicorn

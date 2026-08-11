@@ -230,6 +230,13 @@ class FakeClient:
 
 
 class ProcessFeedTests(unittest.TestCase):
+    def test_only_browser_assets_are_publicly_served(self):
+        response = main.serve_public_asset("app.js")
+        self.assertEqual("application/javascript", response.media_type)
+        with self.assertRaises(main.HTTPException) as blocked:
+            main.serve_public_asset("main.py")
+        self.assertEqual(404, blocked.exception.status_code)
+
     def test_standings_select_the_active_season(self):
         self.assertEqual(2026, main._current_mlb_season(1785542400))
         self.assertEqual(2025, main._current_mlb_season(1768435200))
