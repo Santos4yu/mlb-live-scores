@@ -230,6 +230,10 @@ class FakeClient:
 
 
 class ProcessFeedTests(unittest.TestCase):
+    def test_standings_select_the_active_season(self):
+        self.assertEqual(2026, main._current_mlb_season(1785542400))
+        self.assertEqual(2025, main._current_mlb_season(1768435200))
+
     def test_compact_multiwatch_payload_keeps_current_pitch_without_boxscore(self):
         current = main._process_play(
             raw_feed()["liveData"]["plays"]["currentPlay"]

@@ -30,6 +30,7 @@ MAX_FEED_STATES = max(8, int(os.environ.get("MAX_FEED_STATES", "64")))
 FEED_STATE_TTL_SECONDS = max(
     300.0, float(os.environ.get("FEED_STATE_TTL_SECONDS", "1800"))
 )
+STANDINGS_CACHE_SECONDS = 900
 FEED_URL = "https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
 HOT_FEED_FIELDS = ",".join(
     (
@@ -1389,9 +1390,20 @@ async def stream_game_feed(gamePk: int, request: Request, compact: bool = Query(
     )
 
 
+def _current_mlb_season(timestamp: float | None = None) -> int:
+    """Use the active season, retaining the prior season through the offseason."""
+    today = time.gmtime(timestamp)
+    return today.tm_year if today.tm_mon >= 3 else today.tm_year - 1
+
+
 @app.get("/api/standings")
 async def get_standings():
-    data = await cached_get(f"{MLB}/standings?leagueId=103,104&season=2025&hydrate=team", ttl=300)
+    season = _current_mlb_season()
+    data = await cached_get(
+        f"{MLB}/standings?leagueId=103,104&season={season}"
+        "&standingsTypes=regularSeason&hydrate=team",
+        ttl=STANDINGS_CACHE_SECONDS,
+    )
     divisions = {}
     div_names = {201: "AL East", 202: "AL Central", 200: "AL West", 204: "NL East", 205: "NL Central", 203: "NL West"}
     for rec in data.get("records", []):
