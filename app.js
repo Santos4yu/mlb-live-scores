@@ -151,9 +151,6 @@ function renderGames(games){
     const list=document.getElementById('gamesList');list.innerHTML='';document.getElementById('emptyState').style.display='none';
     if(!games||!games.length){document.getElementById('emptyState').style.display='flex';return;}
     games.sort(compareGames);
-    const liveCount=games.filter(isActuallyLive).length;
-    const mwBtn=document.getElementById('multiWatchBtn');
-    if(mwBtn)mwBtn.style.display=liveCount>=2?'inline-block':'none';
     games.forEach(g=>{
         const aw=g.away,hm=g.home,ls=g.linescore,st=g.status;
         const isLive=isActuallyLive(g),isFinal=st.abstract==='Final',isDelayed=st.detailed==='Delayed';
@@ -173,7 +170,7 @@ function renderGames(games){
             ${isDelayed?'<span style="font-size:10px;color:var(--live-yellow)">Weather delay</span>':''}
             ${(isPreview&&g.venue)?`<span style="font-size:10px;color:var(--text-muted)">${g.venue}</span>`:''}
         </div>`;
-        c.addEventListener('click',()=>{if(!toggleMultiSelect(g.gamePk,c))openGameCenter(g.gamePk,aw,hm,st.abstract);});list.appendChild(c);
+        c.addEventListener('click',()=>openGameCenter(g.gamePk,aw,hm,st.abstract));list.appendChild(c);
     });
 }
 function showLoading(){document.getElementById('loadingState').style.display='flex';document.getElementById('gamesList').innerHTML='';document.getElementById('emptyState').style.display='none';}
