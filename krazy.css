@@ -39,6 +39,6 @@ body:before{display:none}
 .diamond-base{z-index:1;width:9px;height:9px;border:1px solid rgba(148,163,184,.65);border-radius:1px;background:var(--bg-card);box-shadow:none;transform:rotate(45deg)}
 .diamond-base.first{top:17px;right:4px;bottom:auto}.diamond-base.second{top:0;left:50%}.diamond-base.third{top:17px;left:4px;bottom:auto}
 .diamond-base.occupied{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 2px rgba(247,185,40,.12)}
-.official-data{font-size:9px;letter-spacing:.8px;text-transform:none}
+.official-data{color:var(--text-muted);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:none}
 @media(max-width:900px){.top-bar{padding-inline:16px}.brand-type{display:flex}.games-list{grid-template-columns:repeat(2,minmax(0,1fr));padding-inline:16px}.score-hero,.section-header{margin-inline:0;padding-inline:16px}.date-picker-container{padding-inline:16px}}
 @media(max-width:600px){.top-bar{height:60px;padding-inline:10px}.brand-mark{width:34px;height:34px}.brand-type{display:none}.sport-pill{padding:6px 9px}.menu-link{padding:6px 7px;font-size:9px}.menu-link:first-of-type{font-size:0}.menu-link:first-of-type:after{content:"Research";font-size:9px}.score-hero{padding-top:22px}.score-hero .krazy-picks-title{font-size:28px!important}.hero-description{font-size:12px}.games-list{grid-template-columns:1fr}.game-card{min-height:168px}}
