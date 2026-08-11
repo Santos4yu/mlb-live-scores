@@ -9,6 +9,6 @@ services:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: LIVE_FEED_CHECK_SECONDS
-        value: "0.5"
+        value: "0.25"
       - key: HOT_FEED_TIMEOUT_SECONDS
-        value: "0.8"
+        value: "0.65"

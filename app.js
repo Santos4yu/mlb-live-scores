@@ -43,11 +43,11 @@ let deferredGameRenderTimer = null;
 let deferredGameRenderData = null;
 let lastCompletedPlayAtBat = null;
 let lastCompletedPlayTime = 0;
-const PLAY_RESULT_HOLD_MS = 2500;
-const FEED_FALLBACK_MS = 500;
-const FEED_FALLBACK_REQUEST_TIMEOUT_MS = 900;
+const PLAY_RESULT_HOLD_MS = 1500;
+const FEED_FALLBACK_MS = 300;
+const FEED_FALLBACK_REQUEST_TIMEOUT_MS = 700;
 const FEED_COLD_START_TIMEOUT_MS = 5000;
-const FEED_STREAM_TIMEOUT_MS = 3500;
+const FEED_STREAM_TIMEOUT_MS = 1800;
 
 const TEAM_COLORS = {
     ARI:{c:'#A71930',id:109},ATL:{c:'#CE1141',id:144},BAL:{c:'#DF4601',id:110},
@@ -889,7 +889,7 @@ function animateLatestPitch(){
         dot.classList.remove('pitch-dot-new');
         return;
     }
-    pitchAnimationUntil=performance.now()+800;
+    pitchAnimationUntil=performance.now()+360;
     let fallbackTimer=null;
     const finish=()=>{
         dot.removeEventListener('animationend',onAnimationEnd);
@@ -902,7 +902,7 @@ function animateLatestPitch(){
         if(event.animationName==='pitchImpact')finish();
     };
     dot.addEventListener('animationend',onAnimationEnd);
-    fallbackTimer=setTimeout(finish,900);
+    fallbackTimer=setTimeout(finish,450);
 }
 
 // ── TEAM TABS ─────────────────────────────────────────────────

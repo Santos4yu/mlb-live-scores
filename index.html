@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MLB Live Scores</title>
-    <link rel="stylesheet" href="styles.css?v=center-bases-20">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Krazy Scores — Live Sports, No Chill</title>
+    <meta name="theme-color" content="#07090d">
+    <meta name="description" content="Krazy Scores delivers live MLB scores, play-by-play action, standings and multi-game viewing in one electric scoreboard.">
+    <link rel="icon" href="josoicon.png">
+    <link rel="stylesheet" href="styles.css?v=krazy-scores-1">
+    <link rel="stylesheet" href="krazy.css?v=1">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Main Scores Screen -->
     <div id="app-scores" class="screen active">
         <!-- Top Bar -->
         <header class="top-bar">
-            <div class="top-bar-left">
-                <div class="avatar-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.5-7 7-7s7 3 7 7"/></svg>
-                </div>
+            <div class="top-bar-left brand-lockup">
+                <img src="josoicon.png" class="brand-mark" alt="Krazy Scores">
+                <div class="brand-type"><strong>KRAZY</strong><span>SCORES</span></div>
             </div>
             <div class="top-bar-center">
                 <div class="sport-pills">
@@ -42,6 +45,11 @@
             </div>
         </header>
 
+        <section class="score-hero">
+            <div><span class="eyebrow"><i></i> The action, right now</span><h1>Every pitch.<br><em>Every moment.</em></h1></div>
+            <div class="hero-side"><strong>MLB</strong><span>Live score center</span></div>
+        </section>
+
         <!-- Date Picker -->
         <div class="date-picker-container">
             <div class="date-picker" id="datePicker">
@@ -51,7 +59,7 @@
 
         <!-- Games Header -->
         <div class="section-header">
-            <h2 class="section-title">Games</h2>
+            <div><span class="section-kicker">Scoreboard</span><h2 class="section-title">Today's Games</h2></div>
             <div style="display:flex;gap:8px">
                 <button class="standings-btn" id="multiWatchBtn" onclick="openMultiWatchSelect()" style="display:none">Multi</button>
                 <button class="standings-btn" id="standingsBtn">Standings <span class="arrow">›</span></button>
@@ -130,6 +138,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=compact-multiwatch-23"></script>
+    <script src="app.js?v=krazy-scores-1"></script>
 </body>
 </html>

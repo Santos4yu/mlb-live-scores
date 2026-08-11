@@ -511,7 +511,9 @@ class ProcessFeedTests(unittest.TestCase):
         )
 
     def test_stream_health_detects_a_stalled_upstream_check(self):
-        state = main.FeedState(data={"status": {}})
+        state = main.FeedState(
+            data={"status": {"abstractGameState": "Live"}}
+        )
         state.last_success_at = (
             main.time.monotonic()
             - main.HOT_FEED_TIMEOUT_SECONDS
@@ -529,7 +531,7 @@ class ProcessFeedTests(unittest.TestCase):
 
         self.assertFalse(main._feed_is_degraded(state))
 
-    def test_live_errors_do_not_slow_the_half_second_retry_cadence(self):
+    def test_live_errors_do_not_slow_the_low_latency_retry_cadence(self):
         state = main.FeedState(
             data={"status": {"abstractGameState": "Live"}},
             error_count=4,

@@ -1289,6 +1289,102 @@ body {
     overflow: visible;
     transition: border-color 0.3s, box-shadow 0.3s;
 }
+
+/* ================================================================
+   KRAZY SCORES — championship broadcast theme
+   ================================================================ */
+:root {
+    --bg-primary:#07090d; --bg-secondary:#0c1017; --bg-card:#10151d;
+    --bg-card-hover:#151c27; --bg-elevated:#171e29;
+    --accent:#f7b928; --accent-dim:rgba(247,185,40,.11); --accent-glow:rgba(247,185,40,.26);
+    --text-primary:#f7f8fa; --text-secondary:#a8b0bd; --text-muted:#687181;
+    --border:rgba(255,255,255,.085); --border-accent:rgba(247,185,40,.44);
+    --live-red:#ff3d5a; --live-green:#22d887; --live-yellow:#f7b928;
+    --radius:18px; --radius-sm:12px; --radius-xs:8px;
+}
+[data-theme="light"] {
+    --bg-primary:#f3f0e9; --bg-secondary:#e9e4da; --bg-card:#fffdf9;
+    --bg-card-hover:#fff; --bg-elevated:#ece6db; --accent:#9b6100;
+    --accent-dim:rgba(155,97,0,.09); --accent-glow:rgba(155,97,0,.18);
+    --text-primary:#121318; --text-secondary:#535965; --text-muted:#888c94;
+    --border:rgba(18,19,24,.11); --border-accent:rgba(155,97,0,.4);
+}
+html { background:var(--bg-primary); }
+body {
+    background:
+      radial-gradient(circle at 8% -10%, rgba(247,185,40,.12), transparent 25rem),
+      radial-gradient(circle at 95% 18%, rgba(28,102,255,.08), transparent 28rem),
+      var(--bg-primary);
+    font-family:'Inter',sans-serif;
+}
+body:before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.18; z-index:-1; background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px); background-size:48px 48px; mask-image:linear-gradient(to bottom,black,transparent 70%); }
+.screen { max-width:1440px; margin:0 auto; }
+.top-bar { height:78px; padding:10px clamp(18px,4vw,56px); background:rgba(7,9,13,.82); border-bottom:1px solid rgba(255,255,255,.08); backdrop-filter:blur(20px); }
+[data-theme="light"] .top-bar { background:rgba(243,240,233,.88); }
+.brand-lockup { min-width:240px; gap:10px; }
+.brand-mark { width:52px; height:52px; object-fit:contain; filter:drop-shadow(0 5px 14px rgba(247,185,40,.22)); }
+.brand-type { display:flex; flex-direction:column; font-family:'Barlow Condensed',sans-serif; font-style:italic; line-height:.76; letter-spacing:-.5px; }
+.brand-type strong { color:var(--accent); font-size:25px; font-weight:900; }
+.brand-type span { color:var(--text-primary); font-size:19px; font-weight:800; letter-spacing:1.8px; }
+.top-bar-center { display:flex; justify-content:center; }
+.sport-pills { gap:6px; background:rgba(255,255,255,.035); padding:5px; border:1px solid var(--border); border-radius:99px; }
+.sport-pill { padding:8px 15px; font-size:11px; letter-spacing:.8px; }
+.sport-pill.active { background:var(--accent); color:#111; box-shadow:0 5px 18px var(--accent-glow); }
+.icon-btn,.avatar-btn,.back-btn { border:1px solid var(--border); background:rgba(255,255,255,.045); }
+.icon-btn:hover,.avatar-btn:hover,.back-btn:hover { color:var(--accent); border-color:var(--border-accent); background:var(--accent-dim); }
+.score-hero { display:flex; justify-content:space-between; align-items:flex-end; min-height:245px; margin:0 clamp(18px,4vw,56px); padding:52px 0 32px; border-bottom:1px solid var(--border); position:relative; overflow:hidden; }
+.score-hero:after { content:"KS"; position:absolute; right:8%; bottom:-55px; font-family:'Barlow Condensed'; font-size:240px; font-weight:900; font-style:italic; color:transparent; -webkit-text-stroke:1px rgba(247,185,40,.09); z-index:-1; }
+.eyebrow,.section-kicker { color:var(--accent); font-size:10px; font-weight:800; letter-spacing:2.2px; text-transform:uppercase; }
+.eyebrow { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.eyebrow i { width:24px; height:2px; background:var(--accent); }
+.score-hero h1 { font-family:'Barlow Condensed',sans-serif; font-size:clamp(46px,6.2vw,82px); line-height:.82; letter-spacing:-2px; text-transform:uppercase; }
+.score-hero h1 em { color:var(--accent); font-style:italic; }
+.hero-side { border-left:2px solid var(--accent); padding:4px 0 4px 15px; display:flex; flex-direction:column; text-transform:uppercase; }
+.hero-side strong { font-family:'Barlow Condensed'; font-size:30px; line-height:1; }
+.hero-side span { color:var(--text-muted); font-size:9px; font-weight:800; letter-spacing:1.5px; }
+.date-picker-container { padding:16px clamp(18px,4vw,56px); border:0; }
+.date-picker { padding:0; justify-content:center; gap:8px; }
+.date-item { width:64px; padding:10px 6px 9px; border-color:var(--border); background:rgba(255,255,255,.025); border-radius:12px; }
+.date-item .day-name { font-size:9px; letter-spacing:1.2px; }
+.date-item .day-num { font-family:'Barlow Condensed'; font-size:21px; }
+.date-item.active { color:#111; box-shadow:0 8px 24px var(--accent-glow); }
+.section-header { padding:24px clamp(18px,4vw,56px) 12px; }
+.section-title { font-family:'Barlow Condensed'; text-transform:uppercase; font-size:32px; font-style:italic; letter-spacing:-.5px; margin-top:2px; }
+.standings-btn { padding:9px 13px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:10px; color:var(--text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.8px; }
+.standings-btn:hover { color:var(--accent); border-color:var(--border-accent); }
+.games-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; padding:0 clamp(18px,4vw,56px) 32px; }
+.game-card { background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018)); padding:18px; border-radius:18px; border:1px solid var(--border); min-height:190px; box-shadow:0 14px 40px rgba(0,0,0,.17); }
+.game-card:before { content:""; position:absolute; inset:0 auto 0 0; width:3px; background:transparent; }
+.game-card.live:before { background:var(--live-red); box-shadow:0 0 14px var(--live-red); }
+.game-card.live { border-color:rgba(255,61,90,.3); }
+.game-card:hover { transform:translateY(-4px); border-color:var(--border-accent); box-shadow:0 18px 50px rgba(0,0,0,.3),0 0 0 1px rgba(247,185,40,.06); }
+.gc-inning { font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+.gc-team-row { min-height:45px; }
+.team-abbr { font-family:'Barlow Condensed'; font-size:20px!important; font-style:italic; font-weight:800!important; }
+.team-name { font-size:9px!important; letter-spacing:.2px; }
+.gc-score { font-family:'Barlow Condensed'; font-size:30px!important; font-weight:900!important; }
+.gc-bottom { border-top:1px solid var(--border); margin-top:10px; padding-top:12px; }
+.official-data { color:var(--text-muted); padding:20px 0 35px; font-size:9px; letter-spacing:1.6px; text-transform:uppercase; }
+.official-data svg { fill:var(--accent)!important; }
+.loading-state,.empty-state { color:var(--text-secondary); }
+.spinner { border-color:var(--accent-dim); border-top-color:var(--accent); }
+.standings-content { max-width:1100px; margin:auto; padding:30px clamp(18px,4vw,56px); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.standings-section { background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.015)); border:1px solid var(--border); border-radius:18px; overflow:hidden; }
+.standings-section h3 { font-family:'Barlow Condensed'; color:var(--accent); text-transform:uppercase; font-style:italic; font-size:22px; letter-spacing:.5px; }
+.standings-table th { color:var(--text-muted); font-size:9px; letter-spacing:1px; text-transform:uppercase; }
+.standings-table tr:hover td { background:var(--accent-dim); }
+.page-title { font-family:'Barlow Condensed'; font-size:23px; font-style:italic; text-transform:uppercase; letter-spacing:.4px; }
+.gc-header { background:linear-gradient(180deg,rgba(247,185,40,.08),transparent),var(--bg-primary)!important; border-bottom:1px solid var(--border); }
+.gc-header-score { font-family:'Barlow Condensed'; font-weight:900; }
+.gc-tabs { background:rgba(7,9,13,.88)!important; backdrop-filter:blur(15px); border-bottom:1px solid var(--border); }
+.gc-tab { font-family:'Barlow Condensed'; font-size:15px; letter-spacing:.8px; text-transform:uppercase; }
+.gc-tab.active { color:var(--accent)!important; }
+.gc-tab.active:after { background:var(--accent)!important; box-shadow:0 0 10px var(--accent); }
+.gc-content { max-width:1100px; margin:auto; }
+.multiwatch-grid { padding:18px; gap:12px; }
+button:focus-visible,.game-card:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(max-width:900px){ .brand-lockup{min-width:auto}.brand-type{display:none}.games-list{grid-template-columns:repeat(2,minmax(0,1fr))}.standings-content{grid-template-columns:1fr}.score-hero{min-height:210px}.top-bar{padding-inline:16px} }
+@media(max-width:600px){ .top-bar{height:68px}.brand-mark{width:45px;height:45px}.top-bar-right .icon-btn:not(:first-child){display:none}.sport-pills{border:0;background:transparent;padding:0}.sport-pill{padding:7px 11px}.score-hero{min-height:180px;padding:35px 0 24px}.score-hero h1{font-size:45px}.hero-side{display:none}.date-picker-container{padding-inline:14px}.date-picker{justify-content:flex-start}.games-list{grid-template-columns:1fr;padding-inline:14px}.section-header{padding-inline:14px}.game-card{min-height:180px}.section-title{font-size:28px} }
 .feed-pitch-card.play-result-hold {
     border-color: var(--accent);
     box-shadow: 0 0 12px rgba(0,0,0,0.15);
@@ -1531,7 +1627,7 @@ body {
 
 /* Pitch flight into the zone */
 .pitch-dot-new {
-    animation: pitchFlight 0.56s cubic-bezier(0.17,0.78,0.22,1) both;
+    animation: pitchFlight 0.32s cubic-bezier(0.17,0.78,0.22,1) both;
     will-change: opacity, transform;
 }
 .pitch-dot-new::after {
@@ -1542,7 +1638,7 @@ body {
     border-radius: 50%;
     opacity: 0;
     pointer-events: none;
-    animation: pitchImpact 0.34s 0.39s ease-out both;
+    animation: pitchImpact 0.18s 0.2s ease-out both;
 }
 @keyframes pitchFlight {
     0% {
@@ -2040,7 +2136,7 @@ body {
 .mw-pitch-row span { color: var(--text-muted); font-size: 8px; }
 .mw-pitch-row-new { animation: mwPitchRowIn 0.24s ease-out both; }
 .mw-pitch-dot-new {
-    animation: pitchFlight 0.56s cubic-bezier(0.17,0.78,0.22,1) both;
+    animation: pitchFlight 0.32s cubic-bezier(0.17,0.78,0.22,1) both;
     will-change: opacity, transform;
 }
 @keyframes mwPitchRowIn {

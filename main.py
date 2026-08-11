@@ -15,17 +15,17 @@ CACHE_TTL = 15
 _client: httpx.AsyncClient | None = None
 logger = logging.getLogger("live-scores")
 
-LIVE_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("LIVE_FEED_CHECK_SECONDS", "0.5")))
+LIVE_FEED_CHECK_SECONDS = max(0.2, float(os.environ.get("LIVE_FEED_CHECK_SECONDS", "0.25")))
 HOT_FEED_TIMEOUT_SECONDS = max(
-    0.4, float(os.environ.get("HOT_FEED_TIMEOUT_SECONDS", "0.8"))
+    0.35, float(os.environ.get("HOT_FEED_TIMEOUT_SECONDS", "0.65"))
 )
 FULL_FEED_MAX_AGE_SECONDS = max(
     2.0, float(os.environ.get("FULL_FEED_MAX_AGE_SECONDS", "5.0"))
 )
 PREGAME_FEED_CHECK_SECONDS = max(0.5, float(os.environ.get("PREGAME_FEED_CHECK_SECONDS", "1")))
 FINAL_FEED_CHECK_SECONDS = max(5.0, float(os.environ.get("FINAL_FEED_CHECK_SECONDS", "15")))
-FEED_KEEPALIVE_SECONDS = 2
-FEED_REST_MAX_AGE_SECONDS = 0.2
+FEED_KEEPALIVE_SECONDS = 1
+FEED_REST_MAX_AGE_SECONDS = 0.1
 MAX_FEED_STATES = max(8, int(os.environ.get("MAX_FEED_STATES", "64")))
 FEED_STATE_TTL_SECONDS = max(
     300.0, float(os.environ.get("FEED_STATE_TTL_SECONDS", "1800"))
@@ -147,8 +147,8 @@ def _cache_buster() -> str:
 
 
 def _hot_cache_buster() -> str:
-    """Share duplicate checks while forcing a fresh object each live interval."""
-    return str(int(time.time() / LIVE_FEED_CHECK_SECONDS))
+    """Force every coalesced live check past upstream/CDN response caching."""
+    return str(time.time_ns())
 
 
 async def _fetch_hot_feed(game_pk: int) -> dict:
