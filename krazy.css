@@ -33,6 +33,12 @@ body:before{display:none}
 .game-card.live{border-color:var(--border);box-shadow:none}.game-card.live:before{width:2px;box-shadow:none}
 .game-card:hover{transform:none;background:var(--bg-card-hover);border-color:rgba(255,255,255,.15);box-shadow:none}
 .gc-inning{font-size:10px;letter-spacing:.4px;text-transform:none}.team-abbr{font-family:Inter,sans-serif;font-size:15px!important;font-style:normal}.gc-score{font-family:Inter,sans-serif;font-size:23px!important}.gc-bottom{padding-top:10px}
+.diamond{position:relative;width:48px;height:38px;flex:0 0 48px}
+.diamond:before{content:"";position:absolute;left:13px;top:7px;width:20px;height:20px;border:1px solid rgba(148,163,184,.22);transform:rotate(45deg)}
+.diamond:after{content:"";position:absolute;left:50%;bottom:0;width:7px;height:7px;border:1px solid rgba(148,163,184,.5);border-radius:1px;background:var(--bg-card);transform:translateX(-50%) rotate(45deg)}
+.diamond-base{z-index:1;width:9px;height:9px;border:1px solid rgba(148,163,184,.65);border-radius:1px;background:var(--bg-card);box-shadow:none;transform:rotate(45deg)}
+.diamond-base.first{top:17px;right:4px;bottom:auto}.diamond-base.second{top:0;left:50%}.diamond-base.third{top:17px;left:4px;bottom:auto}
+.diamond-base.occupied{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 2px rgba(247,185,40,.12)}
 .official-data{font-size:9px;letter-spacing:.8px;text-transform:none}
 @media(max-width:900px){.top-bar{padding-inline:16px}.brand-type{display:flex}.games-list{grid-template-columns:repeat(2,minmax(0,1fr));padding-inline:16px}.score-hero,.section-header{margin-inline:0;padding-inline:16px}.date-picker-container{padding-inline:16px}}
 @media(max-width:600px){.top-bar{height:60px;padding-inline:10px}.brand-mark{width:34px;height:34px}.brand-type{display:none}.sport-pill{padding:6px 9px}.menu-link{padding:6px 7px;font-size:9px}.menu-link:first-of-type{font-size:0}.menu-link:first-of-type:after{content:"Research";font-size:9px}.score-hero{padding-top:22px}.score-hero .krazy-picks-title{font-size:28px!important}.hero-description{font-size:12px}.games-list{grid-template-columns:1fr}.game-card{min-height:168px}}
